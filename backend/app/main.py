@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routes import ingestion
+from app.routes import ingestion, cleaning
 
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
@@ -23,6 +23,7 @@ app.add_middleware(
 
 # Include API Routers
 app.include_router(ingestion.router, prefix="/api")
+app.include_router(cleaning.router, prefix="/api")
 
 @app.get("/")
 def root():

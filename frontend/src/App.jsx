@@ -9,8 +9,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('upload');
   const [rawLeads, setRawLeads] = useState([]);
   const [cleanLeads, setCleanLeads] = useState([]);
-  const [qualityReport, setQualityReport] = useState(null);
-  const [reps, setReps] = useState([]);
 
   const fetchRawLeads = async () => {
     try {
@@ -24,8 +22,21 @@ export default function App() {
     }
   };
 
+  const fetchCleanLeads = async () => {
+    try {
+      const res = await fetch('/api/leads/clean');
+      if (res.ok) {
+        const data = await res.json();
+        setCleanLeads(data.leads || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch clean leads:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRawLeads();
+    fetchCleanLeads();
   }, []);
 
   return (
@@ -45,7 +56,11 @@ export default function App() {
             onProceedToCleaning={() => setActiveTab('quality')}
           />
         )}
-        {activeTab === 'quality' && <DataQualityPage />}
+        {activeTab === 'quality' && (
+          <DataQualityPage
+            onProceedToScoring={() => setActiveTab('scoring')}
+          />
+        )}
         {activeTab === 'scoring' && <ScoringPage />}
         {activeTab === 'assignment' && <AssignmentPage />}
       </main>
