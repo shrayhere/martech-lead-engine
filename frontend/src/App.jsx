@@ -61,7 +61,11 @@ export default function App() {
             onProceedToScoring={() => setActiveTab('scoring')}
           />
         )}
-        {activeTab === 'scoring' && <ScoringPage />}
+        {activeTab === 'scoring' && (
+          <ScoringPage
+            onProceedToAssignment={() => setActiveTab('assignment')}
+          />
+        )}
         {activeTab === 'assignment' && <AssignmentPage />}
       </main>
 
