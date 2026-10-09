@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, Layers } from 'lucide-react';
+import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, Layers, FileDown } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, rawCount, cleanCount }) {
   const tabs = [
@@ -35,32 +35,45 @@ export default function Header({ activeTab, setActiveTab, rawCount, cleanCount }
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="flex space-x-1 sm:space-x-2">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-                  <span className="hidden md:inline">{tab.label}</span>
-                  {tab.badge && (
-                    <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+          {/* Navigation Tabs & Report Download */}
+          <div className="flex items-center space-x-2">
+            <nav className="flex space-x-1 sm:space-x-2">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                    <span className="hidden md:inline">{tab.label}</span>
+                    {tab.badge && (
+                      <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Direct PDF Report Download Button */}
+            <a
+              href="/MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+              download="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm"
+              title="Download Architecture & QA Report PDF"
+            >
+              <FileDown className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Report (PDF)</span>
+            </a>
+          </div>
         </div>
       </div>
     </header>

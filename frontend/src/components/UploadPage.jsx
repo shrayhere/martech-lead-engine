@@ -94,13 +94,24 @@ export default function UploadPage({ onUploadSuccess, rawLeads, onProceedToClean
             Accepts any custom B2B lead CSV format with real-time dynamic column mapping and intelligent fallbacks.
           </p>
         </div>
-        <button
-          onClick={downloadSampleCSV}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/10 cursor-pointer"
-        >
-          <Download className="w-4 h-4 text-indigo-400" />
-          <span>Download Sample CSV (200 Leads)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+            download="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 hover:text-white border border-emerald-500/30 rounded-xl text-sm font-semibold transition-all shadow-md cursor-pointer"
+            title="Download Architecture & Engineering Audit Report PDF"
+          >
+            <FileText className="w-4 h-4 text-emerald-400" />
+            <span>Audit Report (PDF)</span>
+          </a>
+          <button
+            onClick={downloadSampleCSV}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-indigo-500/10 cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-indigo-400" />
+            <span>Download Sample CSV (200 Leads)</span>
+          </button>
+        </div>
       </div>
 
       {/* Upload Zone & Dynamic Header Mapping Container */}

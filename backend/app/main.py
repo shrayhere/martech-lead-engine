@@ -38,3 +38,17 @@ def root():
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/api/report-pdf")
+def download_architecture_report():
+    import os
+    from fastapi.responses import FileResponse
+    report_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"))
+    if not os.path.exists(report_path):
+        # Fallback to current working directory
+        report_path = os.path.abspath("MarTech_Lead_Engine_Architecture_And_QA_Report.pdf")
+    return FileResponse(
+        report_path,
+        media_type="application/pdf",
+        filename="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+    )
