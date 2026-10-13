@@ -1,14 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
+import SmartUploadPage from './components/SmartUploadPage';
+import LeadListsPage from './components/LeadListsPage';
 import UploadPage from './components/UploadPage';
 import DataQualityPage from './components/DataQualityPage';
 import ScoringPage from './components/ScoringPage';
 import AssignmentPage from './components/AssignmentPage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('smart'); // Default to Smart Upload
   const [rawLeads, setRawLeads] = useState([]);
   const [cleanLeads, setCleanLeads] = useState([]);
+  const [runs, setRuns] = useState([]);
+  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [targetLeadBand, setTargetLeadBand] = useState('all');
+
+  const fetchRuns = async () => {
+    try {
+      const res = await fetch('/api/pipeline/runs');
+      if (res.ok) {
+        const data = await res.json();
+        setRuns(data.runs || []);
+        if (data.runs && data.runs.length > 0 && !selectedRunId) {
+          setSelectedRunId(data.runs[0].run_id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch runs:', err);
+    }
+  };
 
   const fetchRawLeads = async () => {
     try {
@@ -35,9 +55,22 @@ export default function App() {
   };
 
   useEffect(() => {
+    fetchRuns();
     fetchRawLeads();
     fetchCleanLeads();
   }, []);
+
+  const handlePipelineCompleted = (newRunId) => {
+    setSelectedRunId(newRunId);
+    fetchRuns();
+    fetchRawLeads();
+    fetchCleanLeads();
+  };
+
+  const handleNavigateToLeads = (band = 'all') => {
+    setTargetLeadBand(band);
+    setActiveTab('leads');
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -46,9 +79,28 @@ export default function App() {
         setActiveTab={setActiveTab}
         rawCount={rawLeads.length}
         cleanCount={cleanLeads.length}
+        runs={runs}
+        selectedRunId={selectedRunId}
+        onSelectRun={(rId) => setSelectedRunId(rId)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'smart' && (
+          <SmartUploadPage
+            onPipelineComplete={handlePipelineCompleted}
+            onNavigateToLeads={handleNavigateToLeads}
+            selectedRunId={selectedRunId}
+            onSelectRun={(rId) => setSelectedRunId(rId)}
+          />
+        )}
+        {activeTab === 'leads' && (
+          <LeadListsPage
+            initialBand={targetLeadBand}
+            selectedRunId={selectedRunId}
+            runs={runs}
+            onSelectRun={(rId) => setSelectedRunId(rId)}
+          />
+        )}
         {activeTab === 'upload' && (
           <UploadPage
             onUploadSuccess={fetchRawLeads}
@@ -71,7 +123,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
-        <p>MarTech Data Quality & Lead Scoring Engine • Production-Grade Architecture</p>
+        <p>MarTech Data Quality & Lead Scoring Engine • Autonomous B2B Pipeline Architecture</p>
       </footer>
     </div>
   );

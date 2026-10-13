@@ -1,12 +1,22 @@
 import React from 'react';
-import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, Layers, FileDown } from 'lucide-react';
+import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, Layers, FileDown, Zap, Flame, Clock } from 'lucide-react';
 
-export default function Header({ activeTab, setActiveTab, rawCount, cleanCount }) {
+export default function Header({
+  activeTab,
+  setActiveTab,
+  rawCount,
+  cleanCount,
+  runs = [],
+  selectedRunId,
+  onSelectRun
+}) {
   const tabs = [
-    { id: 'upload', label: '1. Data Ingestion', icon: Database },
-    { id: 'quality', label: '2. Data Quality & Deduplication', icon: ShieldCheck, badge: rawCount > 0 ? `${rawCount}` : null },
-    { id: 'scoring', label: '3. Lead Scoring Engine', icon: Cpu, badge: cleanCount > 0 ? `${cleanCount}` : null },
-    { id: 'assignment', label: '4. Rep Assignment Rules', icon: UserCheck },
+    { id: 'smart', label: 'Smart Upload', icon: Zap, badge: 'Auto' },
+    { id: 'leads', label: 'Lead Lists', icon: Flame },
+    { id: 'upload', label: '1. Ingestion', icon: Database },
+    { id: 'quality', label: '2. Quality & Dedup', icon: ShieldCheck, badge: rawCount > 0 ? `${rawCount}` : null },
+    { id: 'scoring', label: '3. Lead Scoring', icon: Cpu, badge: cleanCount > 0 ? `${cleanCount}` : null },
+    { id: 'assignment', label: '4. Rep Routing', icon: UserCheck },
   ];
 
   return (
@@ -26,18 +36,18 @@ export default function Header({ activeTab, setActiveTab, rawCount, cleanCount }
                   MarTech Engine
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
-                  v1.0 Pro
+                  v2.0 Smart
                 </span>
               </div>
-              <p className="text-xs text-slate-400 hidden sm:block">
-                Data Quality, Fuzzy Deduplication & Lead Scoring Pipeline
+              <p className="text-xs text-slate-400 hidden lg:block">
+                Autonomous Lead Quality & Multi-Tier Scoring Engine
               </p>
             </div>
           </div>
 
-          {/* Navigation Tabs & Report Download */}
+          {/* Navigation Tabs & Run Selector */}
           <div className="flex items-center space-x-2">
-            <nav className="flex space-x-1 sm:space-x-2">
+            <nav className="flex space-x-1 sm:space-x-1.5 overflow-x-auto py-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -45,16 +55,16 @@ export default function Header({ activeTab, setActiveTab, rawCount, cleanCount }
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all shrink-0 cursor-pointer ${
                       isActive
-                        ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                        ? 'bg-indigo-600/25 text-indigo-300 border border-indigo-500/50 shadow-sm font-semibold'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-                    <span className="hidden md:inline">{tab.label}</span>
+                    <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                    <span>{tab.label}</span>
                     {tab.badge && (
-                      <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                      <span className="ml-1 px-1.5 py-0.2 text-[9px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
                         {tab.badge}
                       </span>
                     )}
