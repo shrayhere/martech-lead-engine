@@ -189,8 +189,9 @@ export default function SmartUploadPage({
     }));
   };
 
-  const rawAvailableColumns = pipelineResult?.column_mapping?.detected_headers ||
-    Object.values(pipelineResult?.column_mapping?.canonical_to_source || {}).filter(Boolean);
+  // Unique list: first_name and last_name can both come from "Full Name (Split)"
+  const rawAvailableColumns = [...new Set(pipelineResult?.column_mapping?.detected_headers ||
+    Object.values(pipelineResult?.column_mapping?.canonical_to_source || {}).filter(Boolean))];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -373,7 +374,8 @@ export default function SmartUploadPage({
                 { label: 'Rows In', val: pipelineResult.summary.rows_in, color: 'text-white' },
                 { label: 'Clean Rows Out', val: pipelineResult.summary.rows_out, color: 'text-emerald-400' },
                 { label: 'Duplicates Merged', val: pipelineResult.summary.duplicates_merged, color: 'text-cyan-400' },
-                { label: 'Junk Removed', val: pipelineResult.summary.junk_removed, color: 'text-rose-400' },
+                // Junk rows flagged + rows dropped for having no email and no phone (both wait in Review)
+                { label: 'Junk / Rejected', val: (pipelineResult.summary.junk_removed || 0) + (pipelineResult.summary.rejected_rows_count || 0), color: 'text-rose-400' },
                 { label: 'Fields Fixed', val: pipelineResult.summary.fields_fixed, color: 'text-amber-400' },
                 { label: 'Total Run Time', val: `${pipelineResult.summary.total_time_seconds}s`, color: 'text-indigo-400' },
               ].map((m, idx) => (

@@ -21,6 +21,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.models.schemas import CleanLead, Rep
+from app.services.quality_service import EMAIL_RE
 
 HUBSPOT_BASE = "https://api.hubapi.com"
 BATCH_SIZE = 100
@@ -92,7 +93,10 @@ def ensure_properties(client: httpx.Client) -> Dict[str, str]:
 
 def sync_leads(db: Session, run_id: Optional[str] = None, dry_run: bool = True, limit: Optional[int] = None,
                transport: Optional[httpx.BaseTransport] = None) -> Dict[str, Any]:
-    leads = select_leads(db, run_id, limit)
+    candidates = select_leads(db, run_id, limit)
+    # HubSpot rejects malformed emails (e.g. "name@@domain.com"); leave them out and report them
+    leads = [l for l in candidates if EMAIL_RE.match(l.email.strip())]
+    invalid_emails = [l.email for l in candidates if not EMAIL_RE.match(l.email.strip())]
     rep_names = {r.id: r.name for r in db.query(Rep).all()}
     inputs = [{"idProperty": "email", "id": l.email.strip().lower(), "properties": contact_properties(l, rep_names)}
               for l in leads]
@@ -101,6 +105,8 @@ def sync_leads(db: Session, run_id: Optional[str] = None, dry_run: bool = True, 
         "dry_run": dry_run, "source": run_id or "staged", "contacts_selected": len(inputs),
         "batches": len(batches), "endpoint": "POST /crm/v3/objects/contacts/batch/upsert",
         "unscored_or_unclassified": sum(1 for l in leads if l.score_band is None or l.persona is None),
+        "skipped_invalid_email": len(invalid_emails),
+        "skipped_invalid_email_examples": invalid_emails[:5],
     }
     if dry_run:
         result["preview"] = inputs[:5]

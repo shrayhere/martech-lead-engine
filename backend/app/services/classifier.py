@@ -230,9 +230,9 @@ def recommend_action(persona: str, buying_role: str, interest: str, band: Option
     band = band or "Unscored"
     if buying_role == "Decision Maker":
         return {"Hot": "Route to account executive: book a discovery call within 24 hours",
-                "Warm": f"Executive outreach with a {topic} case study; follow up in 3 days",
+                "Warm": f"Executive outreach with a case study on {topic}; follow up in 3 days",
                 "Cold": "Add to the monthly executive nurture",
-                }.get(band, f"Score first; then executive outreach with a {topic} case study")
+                }.get(band, f"Score first; then executive outreach with a case study on {topic}")
     if buying_role == "Influencer":
         return {"Hot": "SDR call this week: qualify the need and ask who signs off",
                 "Warm": f"Nurture with {topic} content and offer a demo",

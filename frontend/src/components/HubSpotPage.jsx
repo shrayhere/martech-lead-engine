@@ -78,6 +78,12 @@ export default function HubSpotPage({ runs = [], defaultRunId = '' }) {
             <div><div className="text-[11px] text-slate-400 uppercase">{result.dry_run ? 'Unscored / unclassified' : 'Upserted'}</div>
               <div className="font-bold text-white">{result.dry_run ? result.unscored_or_unclassified : result.contacts_upserted}</div></div>
           </div>
+          {result.skipped_invalid_email > 0 && (
+            <div className="text-xs text-amber-300">
+              Skipped {result.skipped_invalid_email} lead(s) with an invalid email (HubSpot would reject them):{' '}
+              <span className="font-mono">{result.skipped_invalid_email_examples.join(', ')}</span>
+            </div>
+          )}
           {result.errors?.length > 0 && (
             <div className="text-xs text-rose-300">{result.errors.length} errors: {result.errors.slice(0, 3).map((e) => e.message).join(' | ')}</div>
           )}

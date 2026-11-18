@@ -213,6 +213,16 @@ def test_hubspot_dry_run_excludes_junk_and_needs_no_token(monkeypatch):
     assert client.post("/api/hubspot/sync", json={"dry_run": False}).status_code == 400  # no token
 
 
+def test_hubspot_skips_invalid_emails(monkeypatch):
+    monkeypatch.delenv("HUBSPOT_ACCESS_TOKEN", raising=False)
+    bad = {**BASE, "first_name": "Rahul", "last_name": "Mehta", "company": "Quantum Leap",
+           "email": "rahul.mehta@@quantumleap.in", "phone": "650-555-0101"}
+    upload_and_clean(BORDERLINE + OTHERS + [bad])
+    r = client.post("/api/hubspot/sync", json={"dry_run": True}).json()
+    assert r["contacts_selected"] == 3 and r["skipped_invalid_email"] == 1
+    assert r["skipped_invalid_email_examples"] == ["rahul.mehta@@quantumleap.in"]
+
+
 def test_hubspot_real_sync_with_mock_transport(monkeypatch):
     monkeypatch.setenv("HUBSPOT_ACCESS_TOKEN", "pat-test-not-a-real-token")
     upload_and_clean(BORDERLINE + OTHERS)
