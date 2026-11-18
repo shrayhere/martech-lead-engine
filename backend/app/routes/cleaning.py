@@ -23,7 +23,7 @@ def get_clean_leads(limit: int = 250, include_junk: bool = True, db: Session = D
     """
     Retrieves stored clean leads.
     """
-    query = db.query(CleanLead)
+    query = db.query(CleanLead).filter(CleanLead.run_id.is_(None))  # staged flow only
     if not include_junk:
         query = query.filter(CleanLead.is_junk == False)
     
@@ -39,7 +39,7 @@ def get_merged_leads_log(limit: int = 250, db: Session = Depends(get_db)):
     Retrieves the audit trail table of all duplicate leads merged and archived.
     Shows winner ID, archived record, similarity score, and merge rationale.
     """
-    logs = db.query(MergedLeadLog).order_by(MergedLeadLog.similarity_score.desc()).limit(limit).all()
+    logs = db.query(MergedLeadLog).filter(MergedLeadLog.run_id.is_(None)).order_by(MergedLeadLog.similarity_score.desc()).limit(limit).all()
     return {
         "count": len(logs),
         "merged_logs": logs

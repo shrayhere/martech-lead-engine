@@ -62,10 +62,7 @@ export default function DataQualityPage({ onProceedToScoring }) {
       Before: report.completeness_score_before,
       After: report.completeness_score_after,
     }
-  ] : [
-    { metric: 'Duplicate Rate (%)', Before: 11.5, After: 0.0 },
-    { metric: 'Data Completeness (%)', Before: 74.2, After: 96.5 },
-  ];
+  ] : null; // no numbers are shown until a cleaning run has produced real ones
 
   const junkLeads = cleanLeads.filter(l => l.is_junk);
   const validCleanLeads = cleanLeads.filter(l => !l.is_junk);
@@ -128,14 +125,16 @@ export default function DataQualityPage({ onProceedToScoring }) {
           <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Duplicate Rate</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-white">
-              {report ? `${report.duplicate_rate_after}%` : '0.0%'}
+              {report ? `${report.duplicate_rate_after}%` : '—'}
             </span>
             <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              Before: {report ? `${report.duplicate_rate_before}%` : '11.5%'}
+              Before: {report ? `${report.duplicate_rate_before}%` : '—'}
             </span>
           </div>
           <p className="text-[11px] text-slate-400">
-            RapidFuzz 85% similarity threshold applied across tuple (name + company + email).
+            {report
+              ? 'Exact email/phone matches, plus guarded fuzzy matches (same last name, similar first name, same company or domain).'
+              : 'Run cleaning to measure the duplicate rate.'}
           </p>
         </div>
 
@@ -143,14 +142,16 @@ export default function DataQualityPage({ onProceedToScoring }) {
           <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Completeness Score</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-extrabold text-emerald-400">
-              {report ? `${report.completeness_score_after}%` : '96.5%'}
+              {report ? `${report.completeness_score_after}%` : '—'}
             </span>
             <span className="text-xs font-semibold text-slate-300 bg-slate-800 px-2 py-0.5 rounded-full">
-              Before: {report ? `${report.completeness_score_before}%` : '74.2%'}
+              Before: {report ? `${report.completeness_score_before}%` : '—'}
             </span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Average populated fields ratio after state & phone E.164 normalization.
+            {report
+              ? 'Average share of populated fields after state & phone E.164 normalization.'
+              : 'Run cleaning to measure completeness.'}
           </p>
         </div>
 
@@ -198,6 +199,11 @@ export default function DataQualityPage({ onProceedToScoring }) {
           </div>
 
           <div className="h-64 w-full pt-2">
+            {!chartData ? (
+              <div className="h-full flex items-center justify-center text-sm text-slate-500 border border-dashed border-slate-700 rounded-xl">
+                No data yet. Run cleaning to compare before and after.
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -212,6 +218,7 @@ export default function DataQualityPage({ onProceedToScoring }) {
                 <Bar dataKey="After" fill="#10b981" radius={[6, 6, 0, 0]} name="After Cleaning" />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -219,24 +226,26 @@ export default function DataQualityPage({ onProceedToScoring }) {
         <div className="glass-panel p-6 rounded-2xl space-y-4 border border-indigo-500/20 bg-indigo-950/20">
           <h3 className="text-base font-semibold text-white flex items-center gap-2">
             <Info className="w-4 h-4 text-indigo-400" />
-            Fuzzy Match Threshold Rationale
+            How Duplicates Are Matched
           </h3>
 
           <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl">
-            <span className="text-xs font-bold text-indigo-300">Configured Similarity Threshold: 85%</span>
+            <span className="text-xs font-bold text-indigo-300">Composite similarity threshold: 85%, with name guards</span>
           </div>
 
           <div className="text-xs text-slate-300 space-y-2 leading-relaxed">
             <p>
-              <strong className="text-indigo-400">Why 85% was chosen:</strong> In real-world B2B lead datasets, exact string matching fails to detect 30-40% of duplicate entries due to spelling typos (<em>Jonathan</em> vs <em>Jonathon</em>), company variations (<em>Acme Corp</em> vs <em>Acme Corporation</em>), or email domain alterations.
-            </p>
-            <p>
-              An 85% RapidFuzz <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300 font-mono text-[10px]">token_sort_ratio</code> provides the optimal trade-off:
+              Records with the same email or phone merge directly. A fuzzy match (typos with no shared identifier) must pass all of:
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-400">
-              <li>High recall for typos and name/company variants.</li>
-              <li>Avoids false positives between distinct leads at similar companies.</li>
+              <li>Same last name.</li>
+              <li>First name at least 85% similar (<em>Jonathan</em> / <em>Jonathon</em>).</li>
+              <li>Same company or email domain.</li>
+              <li>RapidFuzz <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300 font-mono text-[10px]">token_sort_ratio</code> of name | company | email of at least 85%.</li>
             </ul>
+            <p>
+              <strong className="text-indigo-400">Why the guards:</strong> the composite score alone merged different colleagues at the same company. On the sample data (20 planted duplicates) the guarded rule made 20 correct merges and 0 wrong ones; see <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300 font-mono text-[10px]">docs/dedup_evaluation.md</code>.
+            </p>
           </div>
         </div>
       </div>

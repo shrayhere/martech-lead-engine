@@ -1,9 +1,9 @@
 import re
 import json
 from datetime import datetime
-from app.services.match_rules import fuzzy_match
+from app.services.match_rules import fuzzy_match, REVIEW_BAND, auto_merge_min, classify_fuzzy_score
 from sqlalchemy.orm import Session
-from app.models.schemas import RawLead, CleanLead, MergedLeadLog
+from app.models.schemas import RawLead, CleanLead, MergedLeadLog, ReviewItem, AssignmentLog
 from app.config import settings
 
 # Comprehensive US State Normalization Dictionary
@@ -152,9 +152,11 @@ def run_cleaning_pipeline(db: Session) -> dict:
     if not raw_leads:
         return {"error": "No raw leads found. Please upload a CSV first."}
 
-    # Clear existing clean leads & merged logs before re-running
-    db.query(MergedLeadLog).delete()
-    db.query(CleanLead).delete()
+    # Clear the staged flow's previous results (pipeline runs, which carry a run_id, are left alone)
+    db.query(MergedLeadLog).filter(MergedLeadLog.run_id.is_(None)).delete(synchronize_session=False)
+    db.query(ReviewItem).filter(ReviewItem.run_id.is_(None)).delete(synchronize_session=False)
+    db.query(AssignmentLog).filter(AssignmentLog.run_id.is_(None)).delete(synchronize_session=False)  # FK to clean_leads
+    db.query(CleanLead).filter(CleanLead.run_id.is_(None)).delete(synchronize_session=False)
     db.commit()
 
     processed_records = []
@@ -205,6 +207,7 @@ def run_cleaning_pipeline(db: Session) -> dict:
     threshold = settings.FUZZY_MATCH_THRESHOLD
     visited = set()
     clusters = []
+    review_pairs = []  # borderline guarded fuzzy pairs (REVIEW_BAND) -> human review instead of auto-merge
 
     for i, lead in enumerate(processed_records):
         if i in visited:
@@ -232,7 +235,11 @@ def run_cleaning_pipeline(db: Session) -> dict:
             elif lead["phone"] and lead["phone"] == other["phone"]:
                 matched, similarity, reason = True, 100.0, f"Exact match on phone number ({other['phone']})"
             else:
-                matched, similarity, reason = fuzzy_match(lead, other, threshold)
+                passed, similarity, reason = fuzzy_match(lead, other, REVIEW_BAND[0])
+                decision = classify_fuzzy_score(similarity, threshold) if passed else "none"
+                if decision == "review":
+                    review_pairs.append((lead, other, similarity, reason))
+                matched = decision == "merge"
                 reason = f"Fuzzy match: {reason}"
 
             if matched:
@@ -285,7 +292,8 @@ def run_cleaning_pipeline(db: Session) -> dict:
             last_activity_date=winner["last_activity_date"],
             is_junk=winner["is_junk"],
             junk_reason=winner["junk_reason"],
-            duplicate_cluster_id=cluster_id if len(cluster) > 1 else None
+            duplicate_cluster_id=cluster_id if len(cluster) > 1 else None,
+            source_row=winner["raw_id"],
         )
 
         db.add(clean_lead)
@@ -298,6 +306,11 @@ def run_cleaning_pipeline(db: Session) -> dict:
 
         # Archive secondary duplicates into audit log
         for dup in cluster[1:]:
+            # After sorting, the record that anchored the cluster can lose: it has no match_reason of its
+            # own, so use the reason stored on the winner (which was matched against that anchor).
+            if "match_reason" not in dup:
+                dup["match_reason"] = winner.get("match_reason", "Matched")
+                dup["similarity_with_winner"] = winner.get("similarity_with_winner", 100.0)
             sim_score = dup.get("similarity_with_winner", 100.0)
             log_entry = MergedLeadLog(
                 winner_lead_id=clean_lead.id,
@@ -314,7 +327,27 @@ def run_cleaning_pipeline(db: Session) -> dict:
             merged_logs.append(log_entry)
 
     db.bulk_save_objects(merged_logs)
+
+    # Human review queue: borderline pairs whose two records both survived as clean leads, and every junk row.
+    winners = {c[0]["raw_id"] for c in clusters}
+    review_objects = []
+    for a, b, sim, reason in review_pairs:
+        if a["raw_id"] in winners and b["raw_id"] in winners:
+            review_objects.append(ReviewItem(
+                run_id=None, item_type="merge", status="pending", id_type="raw_lead_id",
+                record_a_ref=a["raw_id"], record_b_ref=b["raw_id"],
+                record_a=json.dumps(_snapshot(a)), record_b=json.dumps(_snapshot(b)),
+                similarity_score=sim,
+                reason=f"Borderline fuzzy match ({REVIEW_BAND[0]:.0f}-{REVIEW_BAND[1]:.0f}% band): {reason}"))
+    for c in clusters:
+        w = c[0]
+        if w["is_junk"]:
+            review_objects.append(ReviewItem(
+                run_id=None, item_type="junk", status="pending", id_type="raw_lead_id",
+                record_a_ref=w["raw_id"], record_a=json.dumps(_snapshot(w)), reason=w["junk_reason"]))
+    db.bulk_save_objects(review_objects)
     db.commit()
+    review_merge_count = sum(1 for r in review_objects if r.item_type == "merge")
 
     # Calculate Data Quality Metrics Report
     total_raw = len(raw_leads)
@@ -334,7 +367,17 @@ def run_cleaning_pipeline(db: Session) -> dict:
         "duplicate_rate_after": duplicate_rate_after,
         "completeness_score_before": completeness_before,
         "completeness_score_after": completeness_after,
-        "fuzzy_threshold_used": threshold
+        "fuzzy_threshold_used": threshold,
+        "auto_merge_min_score": auto_merge_min(threshold),
+        "review_band": list(REVIEW_BAND),
+        "borderline_pairs_queued_for_review": review_merge_count,
+        "junk_rows_queued_for_review": junk_count,
     }
 
     return report
+
+
+def _snapshot(rec: dict) -> dict:
+    keys = ("first_name", "last_name", "email", "company", "job_title", "phone", "state", "industry",
+            "engagement_score", "junk_reason")
+    return {k: rec.get(k) for k in keys}

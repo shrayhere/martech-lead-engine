@@ -29,7 +29,7 @@ def get_reps_overview(db: Session = Depends(get_db)):
 
     result = []
     for rep in reps:
-        assigned_leads = db.query(CleanLead).filter(CleanLead.assigned_rep_id == rep.id).all()
+        assigned_leads = db.query(CleanLead).filter(CleanLead.assigned_rep_id == rep.id, CleanLead.run_id.is_(None)).all()
         result.append({
             "id": rep.id,
             "name": rep.name,

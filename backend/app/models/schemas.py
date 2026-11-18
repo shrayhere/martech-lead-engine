@@ -61,8 +61,43 @@ class CleanLead(Base):
     
     assigned_rep_id = Column(Integer, ForeignKey("reps.id"), nullable=True)
     assignment_reason = Column(String, nullable=True)
-    
+
+    # Source record reference: CSV row number for pipeline runs (raw_lead_id covers the staged flow)
+    source_row = Column(Integer, nullable=True)
+
+    # AI classification (see app/services/classifier.py)
+    persona = Column(String, nullable=True)
+    buying_role = Column(String, nullable=True)
+    interest = Column(String, nullable=True)
+    classification_confidence = Column(Float, nullable=True)
+    classification_engine = Column(String, nullable=True)
+    recommended_action = Column(String, nullable=True)
+
+    # HubSpot sync (see app/services/hubspot_sync.py)
+    hubspot_synced_at = Column(String, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReviewItem(Base):
+    """Human review queue: borderline duplicate pairs and junk rows wait here for approve/reject."""
+    __tablename__ = "review_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(String, index=True, nullable=True)   # None = staged flow (Stages 1-4)
+    item_type = Column(String, nullable=False)           # "merge" | "junk"
+    status = Column(String, default="pending", index=True)  # pending | approved | rejected
+    # Record references in the same id space as merged_leads_log (see id_type)
+    id_type = Column(String, nullable=False)             # "raw_lead_id" | "csv_row"
+    record_a_ref = Column(Integer, nullable=False)
+    record_b_ref = Column(Integer, nullable=True)        # merge items only
+    record_a = Column(Text, nullable=True)               # JSON snapshot for display
+    record_b = Column(Text, nullable=True)
+    similarity_score = Column(Float, nullable=True)
+    reason = Column(String, nullable=True)
+    resolution_note = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
 
 class MergedLeadLog(Base):
     __tablename__ = "merged_leads_log"

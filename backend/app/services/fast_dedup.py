@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import List, Dict, Any, Tuple
 from app.config import settings
-from app.services.match_rules import composite_string, fuzzy_match
+from app.services.match_rules import composite_string, fuzzy_match, REVIEW_BAND, classify_fuzzy_score
 
 GENERIC_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com",
@@ -127,6 +127,8 @@ def fast_deduplicate_leads(
             bucket_map[b_key].append(idx)
 
     composite_strings = [composite_string(l) for l in clean_candidates]
+    # Borderline guarded pairs (REVIEW_BAND) are not merged; they are returned for human review.
+    review_candidates: List[Tuple[int, int, float, str]] = []
 
     for b_key, indices in bucket_map.items():
         n_in_bucket = len(indices)
@@ -143,11 +145,14 @@ def fast_deduplicate_leads(
                 j_idx = target_indices[j_pos]
                 if find(j_idx) == find(i_idx):
                     continue  # already in same cluster
-                ok, sim, reason = fuzzy_match(clean_candidates[i_idx], clean_candidates[j_idx], threshold,
+                ok, sim, reason = fuzzy_match(clean_candidates[i_idx], clean_candidates[j_idx], REVIEW_BAND[0],
                                               composite_strings[i_idx], composite_strings[j_idx])
-                if ok:
+                decision = classify_fuzzy_score(sim, threshold) if ok else "none"
+                if decision == "merge":
                     union(i_idx, j_idx)
                     edges[(min(i_idx, j_idx), max(i_idx, j_idx))] = (sim, f"Fuzzy match: {reason}")
+                elif decision == "review":
+                    review_candidates.append((i_idx, j_idx, sim, reason))
 
     # Group records by root parent
     clusters: Dict[int, List[int]] = defaultdict(list)
@@ -204,7 +209,24 @@ def fast_deduplicate_leads(
         junk["duplicate_cluster_id"] = None
         winner_leads.append(junk)
 
+    # Keep a borderline pair only if both records are still separate cluster winners
+    winner_ids = {id(l) for l in winner_leads}
+    review_pairs = []
+    seen_pairs = set()
+    for i_idx, j_idx, sim, reason in review_candidates:
+        a, b = clean_candidates[i_idx], clean_candidates[j_idx]
+        key = (min(i_idx, j_idx), max(i_idx, j_idx))
+        if key in seen_pairs or find(i_idx) == find(j_idx) or id(a) not in winner_ids or id(b) not in winner_ids:
+            continue
+        seen_pairs.add(key)
+        review_pairs.append({
+            "a_row": a.get("row_index", 0), "b_row": b.get("row_index", 0),
+            "a": a, "b": b, "similarity_score": sim,
+            "reason": f"Borderline fuzzy match ({REVIEW_BAND[0]:.0f}-{REVIEW_BAND[1]:.0f}% band): {reason}",
+        })
+
     dedup_stats = {
+        "review_pairs": review_pairs,
         "total_clusters": len(clusters) + len(junk_leads),
         "duplicate_clusters": sum(1 for m in clusters.values() if len(m) > 1),
         "duplicates_merged": duplicate_records_merged,

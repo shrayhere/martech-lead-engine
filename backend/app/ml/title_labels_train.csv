@@ -1,0 +1,194 @@
+title,persona,buying_role,interest
+Chief Executive Officer,Executive,Decision Maker,Business Strategy & ROI
+CEO,Executive,Decision Maker,Business Strategy & ROI
+CEO & Co-Founder,Executive,Decision Maker,Business Strategy & ROI
+Co-Founder,Executive,Decision Maker,Business Strategy & ROI
+Founder,Executive,Decision Maker,Business Strategy & ROI
+Founder & President,Executive,Decision Maker,Business Strategy & ROI
+President,Executive,Decision Maker,Business Strategy & ROI
+Owner,Executive,Decision Maker,Business Strategy & ROI
+Managing Director,Executive,Decision Maker,Business Strategy & ROI
+Managing Partner,Executive,Decision Maker,Business Strategy & ROI
+General Manager,Executive,Decision Maker,Business Strategy & ROI
+Chief Operating Officer,Executive,Decision Maker,Business Strategy & ROI
+COO,Executive,Decision Maker,Business Strategy & ROI
+Chief Financial Officer,Executive,Decision Maker,Business Strategy & ROI
+CFO,Executive,Decision Maker,Business Strategy & ROI
+Chief Strategy Officer,Executive,Decision Maker,Business Strategy & ROI
+Chief Marketing Officer,Executive,Decision Maker,Demand Generation
+CMO,Executive,Decision Maker,Demand Generation
+Chief Growth Officer,Executive,Decision Maker,Demand Generation
+Chief Revenue Officer,Executive,Decision Maker,Sales Productivity
+CRO,Executive,Decision Maker,Sales Productivity
+Chief Sales Officer,Executive,Decision Maker,Sales Productivity
+Chief Customer Officer,Executive,Decision Maker,Sales Productivity
+Chief Technology Officer,Executive,Decision Maker,Technical Integration
+CTO,Executive,Decision Maker,Technical Integration
+Chief Information Officer,Executive,Decision Maker,Technical Integration
+CIO,Executive,Decision Maker,Technical Integration
+Chief Information Security Officer,Executive,Decision Maker,Technical Integration
+CISO,Executive,Decision Maker,Technical Integration
+Chief Product Officer,Executive,Decision Maker,Technical Integration
+Chief Data Officer,Executive,Decision Maker,Data & Analytics
+VP of Marketing,Marketing,Decision Maker,Demand Generation
+Vice President Marketing,Marketing,Decision Maker,Demand Generation
+SVP Marketing,Marketing,Decision Maker,Demand Generation
+Head of Marketing,Marketing,Decision Maker,Demand Generation
+Head of Growth,Marketing,Decision Maker,Demand Generation
+Head of Demand Generation,Marketing,Decision Maker,Demand Generation
+Director of Marketing,Marketing,Influencer,Demand Generation
+Marketing Director,Marketing,Influencer,Demand Generation
+"Senior Director, Product Marketing",Marketing,Influencer,Demand Generation
+Director of Demand Generation,Marketing,Influencer,Demand Generation
+Content Marketing Director,Marketing,Influencer,Demand Generation
+Senior Demand Generation Manager,Marketing,Influencer,Demand Generation
+Demand Generation Manager,Marketing,Influencer,Demand Generation
+Marketing Manager,Marketing,Influencer,Demand Generation
+Digital Marketing Manager,Marketing,Influencer,Demand Generation
+Product Marketing Manager,Marketing,Influencer,Demand Generation
+Content Marketing Manager,Marketing,Influencer,Demand Generation
+Field Marketing Manager,Marketing,Influencer,Demand Generation
+Brand Manager,Marketing,Influencer,Demand Generation
+PR Manager,Marketing,Influencer,Demand Generation
+SEO Manager,Marketing,Influencer,Demand Generation
+Social Media Manager,Marketing,Influencer,Demand Generation
+Growth Lead,Marketing,Influencer,Demand Generation
+Growth Marketing Lead,Marketing,Influencer,Demand Generation
+Email Marketing Lead,Marketing,Influencer,Demand Generation
+Marketing Specialist,Marketing,End User,Demand Generation
+Digital Marketing Specialist,Marketing,End User,Demand Generation
+Marketing Coordinator,Marketing,End User,Demand Generation
+Marketing Associate,Marketing,End User,Demand Generation
+Content Writer,Marketing,End User,Demand Generation
+Copywriter,Marketing,End User,Demand Generation
+SEO Specialist,Marketing,End User,Demand Generation
+Social Media Coordinator,Marketing,End User,Demand Generation
+Paid Media Specialist,Marketing,End User,Demand Generation
+Growth Marketer,Marketing,End User,Demand Generation
+Event Marketing Coordinator,Marketing,End User,Demand Generation
+Communications Specialist,Marketing,End User,Demand Generation
+Marketing Analyst,Marketing,End User,Data & Analytics
+VP of Sales,Sales,Decision Maker,Sales Productivity
+Vice President of Sales,Sales,Decision Maker,Sales Productivity
+SVP Sales,Sales,Decision Maker,Sales Productivity
+VP Business Development,Sales,Decision Maker,Sales Productivity
+Head of Sales,Sales,Decision Maker,Sales Productivity
+Head of Business Development,Sales,Decision Maker,Sales Productivity
+Head of Partnerships,Sales,Decision Maker,Sales Productivity
+Head of Customer Success,Sales,Decision Maker,Sales Productivity
+Director of Sales,Sales,Influencer,Sales Productivity
+Sales Director,Sales,Influencer,Sales Productivity
+Regional Sales Director,Sales,Influencer,Sales Productivity
+Director of Business Development,Sales,Influencer,Sales Productivity
+Senior Sales Manager,Sales,Influencer,Sales Productivity
+Sales Manager,Sales,Influencer,Sales Productivity
+Inside Sales Manager,Sales,Influencer,Sales Productivity
+Channel Sales Manager,Sales,Influencer,Sales Productivity
+Partnerships Manager,Sales,Influencer,Sales Productivity
+Sales Team Lead,Sales,Influencer,Sales Productivity
+Account Executive,Sales,End User,Sales Productivity
+Senior Account Executive,Sales,End User,Sales Productivity
+Enterprise Account Executive,Sales,End User,Sales Productivity
+Account Manager,Sales,End User,Sales Productivity
+Key Account Manager,Sales,End User,Sales Productivity
+Customer Success Manager,Sales,End User,Sales Productivity
+Customer Success Specialist,Sales,End User,Sales Productivity
+Business Development Rep,Sales,End User,Sales Productivity
+Business Development Representative,Sales,End User,Sales Productivity
+BDR,Sales,End User,Sales Productivity
+Sales Development Representative,Sales,End User,Sales Productivity
+SDR,Sales,End User,Sales Productivity
+Sales Representative,Sales,End User,Sales Productivity
+Inside Sales Representative,Sales,End User,Sales Productivity
+Sales Associate,Sales,End User,Sales Productivity
+Sales Consultant,Sales,End User,Sales Productivity
+VP of Engineering,Technical,Decision Maker,Technical Integration
+"Vice President, Engineering",Technical,Decision Maker,Technical Integration
+VP Information Technology,Technical,Decision Maker,Technical Integration
+Head of Engineering,Technical,Decision Maker,Technical Integration
+Head of IT,Technical,Decision Maker,Technical Integration
+Head of Information Security,Technical,Decision Maker,Technical Integration
+Head of Data,Technical,Decision Maker,Data & Analytics
+Director of Engineering,Technical,Influencer,Technical Integration
+Director of IT,Technical,Influencer,Technical Integration
+IT Director,Technical,Influencer,Technical Integration
+Engineering Manager,Technical,Influencer,Technical Integration
+IT Manager,Technical,Influencer,Technical Integration
+Security Manager,Technical,Influencer,Technical Integration
+Lead Software Engineer,Technical,Influencer,Technical Integration
+Principal Engineer,Technical,Influencer,Technical Integration
+Tech Lead,Technical,Influencer,Technical Integration
+Solutions Architect,Technical,Influencer,Technical Integration
+Enterprise Architect,Technical,Influencer,Technical Integration
+Cloud Architect,Technical,Influencer,Technical Integration
+Director of Data Science,Technical,Influencer,Data & Analytics
+Software Engineer,Technical,End User,Technical Integration
+Senior Software Engineer,Technical,End User,Technical Integration
+Backend Developer,Technical,End User,Technical Integration
+Frontend Developer,Technical,End User,Technical Integration
+Full Stack Developer,Technical,End User,Technical Integration
+DevOps Engineer,Technical,End User,Technical Integration
+Site Reliability Engineer,Technical,End User,Technical Integration
+Systems Administrator,Technical,End User,Technical Integration
+Network Engineer,Technical,End User,Technical Integration
+Security Analyst,Technical,End User,Technical Integration
+IT Support Specialist,Technical,End User,Technical Integration
+QA Engineer,Technical,End User,Technical Integration
+Data Engineer,Technical,End User,Data & Analytics
+Data Scientist,Technical,End User,Data & Analytics
+Machine Learning Engineer,Technical,End User,Data & Analytics
+Business Intelligence Developer,Technical,End User,Data & Analytics
+VP of Product,Product,Decision Maker,Technical Integration
+Head of Product,Product,Decision Maker,Technical Integration
+Head of Design,Product,Decision Maker,Technical Integration
+Director of Product Management,Product,Influencer,Technical Integration
+Group Product Manager,Product,Influencer,Technical Integration
+Senior Product Manager,Product,Influencer,Technical Integration
+Product Manager,Product,Influencer,Technical Integration
+Product Owner,Product,Influencer,Technical Integration
+Associate Product Manager,Product,End User,Technical Integration
+UX Designer,Product,End User,Technical Integration
+Product Designer,Product,End User,Technical Integration
+UX Researcher,Product,End User,Technical Integration
+VP of Operations,Operations,Decision Maker,Business Strategy & ROI
+Head of Operations,Operations,Decision Maker,Business Strategy & ROI
+VP Finance,Operations,Decision Maker,Business Strategy & ROI
+Head of Procurement,Operations,Decision Maker,Business Strategy & ROI
+VP Revenue Operations,Operations,Decision Maker,Data & Analytics
+Head of RevOps,Operations,Decision Maker,Data & Analytics
+Director of Revenue Operations,Operations,Influencer,Data & Analytics
+Director of Sales Operations,Operations,Influencer,Data & Analytics
+Sales Operations Manager,Operations,Influencer,Data & Analytics
+Marketing Operations Manager,Operations,Influencer,Data & Analytics
+Revenue Operations Manager,Operations,Influencer,Data & Analytics
+Analytics Manager,Operations,Influencer,Data & Analytics
+RevOps Analyst,Operations,End User,Data & Analytics
+Sales Operations Analyst,Operations,End User,Data & Analytics
+Marketing Operations Specialist,Operations,End User,Data & Analytics
+CRM Administrator,Operations,End User,Data & Analytics
+Salesforce Administrator,Operations,End User,Data & Analytics
+HubSpot Administrator,Operations,End User,Data & Analytics
+Business Analyst,Operations,End User,Data & Analytics
+Business Intelligence Analyst,Operations,End User,Data & Analytics
+Operations Lead,Operations,Influencer,Business Strategy & ROI
+Operations Manager,Operations,Influencer,Business Strategy & ROI
+Director of Finance,Operations,Influencer,Business Strategy & ROI
+Finance Manager,Operations,Influencer,Business Strategy & ROI
+Controller,Operations,Influencer,Business Strategy & ROI
+Procurement Manager,Operations,Influencer,Business Strategy & ROI
+HR Manager,Operations,Influencer,Business Strategy & ROI
+Chief of Staff,Operations,Influencer,Business Strategy & ROI
+Operations Coordinator,Operations,End User,Business Strategy & ROI
+Financial Analyst,Operations,End User,Business Strategy & ROI
+Purchasing Specialist,Operations,End User,Business Strategy & ROI
+Office Manager,Operations,End User,Business Strategy & ROI
+Executive Assistant,Operations,End User,Business Strategy & ROI
+Administrative Assistant,Operations,End User,Business Strategy & ROI
+Tester,Unknown,Unknown,Unknown
+Bot,Unknown,Unknown,Unknown
+Script,Unknown,Unknown,Unknown
+Demo,Unknown,Unknown,Unknown
+Student,Unknown,Unknown,Unknown
+asdf,Unknown,Unknown,Unknown
+test,Unknown,Unknown,Unknown
+qwerty,Unknown,Unknown,Unknown

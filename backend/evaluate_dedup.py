@@ -115,6 +115,9 @@ def report():
     out = ["# Deduplication evaluation", "",
            f"Dataset: `generate_sample_leads(200)` (seed 42): {len(leads)} rows, {len(truth)} planted duplicate pairs.",
            "A *wrong merge* joins two different people; a *missed duplicate* leaves a planted pair unmerged.", "",
+           "For the new (guarded) rule, a fuzzy pair merges automatically only at a composite score of at least "
+           "max(threshold, 90%); guarded pairs scoring 80-90% go to the human review queue instead "
+           "(`match_rules.REVIEW_BAND`). Exact email/phone matches always merge.", "",
            "| Rule | Threshold | Correct merges | Wrong merges | Missed duplicates | Precision | Recall |",
            "|---|---:|---:|---:|---:|---:|---:|"]
     old85_fp = []

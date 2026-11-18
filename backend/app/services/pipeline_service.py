@@ -19,7 +19,15 @@ def sanitize_for_json(obj: Any) -> Any:
 
 
 from app.database import SessionLocal
-from app.models.schemas import RawLead, CleanLead, MergedLeadLog, CleaningLog, AssignmentLog, PipelineRun
+from app.models.schemas import RawLead, CleanLead, MergedLeadLog, CleaningLog, AssignmentLog, PipelineRun, ReviewItem
+from app.services.quality_service import quality_before_from_records
+from app.services.classifier import label_lead_dicts
+
+
+def _snapshot(rec: Dict[str, Any]) -> Dict[str, Any]:
+    keys = ("first_name", "last_name", "email", "company", "job_title", "phone", "state", "industry",
+            "engagement_score", "junk_reason")
+    return {k: rec.get(k) for k in keys}
 from app.services.smart_parser import parse_csv_file
 from app.services.schema_mapper import apply_schema_mapping
 from app.services.pipeline_cleaning import clean_and_normalize_records
@@ -119,6 +127,9 @@ def execute_smart_pipeline(
         t0 = time.perf_counter()
         mapped_df, mapping_summary = apply_schema_mapping(raw_df, mapping_override)
         timings["map_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        # Data-quality "before" snapshot (the raw file itself is not stored)
+        quality_before = quality_before_from_records(
+            mapped_df.astype(object).where(mapped_df.notna(), None).to_dict("records"))
         update_run_progress(run_id, "clean", 40, "running", db)
 
         # ----------------------------------------------------
@@ -161,14 +172,23 @@ def execute_smart_pipeline(
         timings["assign_ms"] = round((time.perf_counter() - t0) * 1000, 2)
 
         # ----------------------------------------------------
+        # STAGE 7: AI CLASSIFICATION (local model; Claude can be run later from the AI Classification page)
+        # ----------------------------------------------------
+        t0 = time.perf_counter()
+        label_lead_dicts(assigned_leads)
+        timings["classify_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+
+        # ----------------------------------------------------
         # BULK DATABASE TRANSACTIONS
         # ----------------------------------------------------
         t0 = time.perf_counter()
         # Clean any previous rows for this run_id
+        # (assignment_log first: it has a foreign key to clean_leads)
+        db.query(AssignmentLog).filter(AssignmentLog.run_id == run_id).delete()
+        db.query(ReviewItem).filter(ReviewItem.run_id == run_id).delete()
         db.query(CleanLead).filter(CleanLead.run_id == run_id).delete()
         db.query(MergedLeadLog).filter(MergedLeadLog.run_id == run_id).delete()
         db.query(CleaningLog).filter(CleaningLog.run_id == run_id).delete()
-        db.query(AssignmentLog).filter(AssignmentLog.run_id == run_id).delete()
 
         # Bulk save clean leads in chunks
         chunk_size = 1000
@@ -201,7 +221,14 @@ def execute_smart_pipeline(
                 score_band=l.get("score_band"),
                 score_breakdown=l.get("score_breakdown"),
                 assigned_rep_id=l.get("assigned_rep_id"),
-                assignment_reason=l.get("assignment_reason")
+                assignment_reason=l.get("assignment_reason"),
+                source_row=l.get("row_index"),
+                persona=l.get("persona"),
+                buying_role=l.get("buying_role"),
+                interest=l.get("interest"),
+                classification_confidence=l.get("classification_confidence"),
+                classification_engine=l.get("classification_engine"),
+                recommended_action=l.get("recommended_action"),
             ))
 
         for i in range(0, len(clean_lead_models), chunk_size):
@@ -254,6 +281,29 @@ def execute_smart_pipeline(
         for i in range(0, len(assign_log_models), chunk_size):
             db.bulk_save_objects(assign_log_models[i:i + chunk_size])
 
+        # Human review queue: borderline duplicate pairs + junk rows
+        review_models = [
+            ReviewItem(run_id=run_id, item_type="merge", status="pending", id_type="csv_row",
+                       record_a_ref=p["a_row"], record_b_ref=p["b_row"],
+                       record_a=json.dumps(_snapshot(p["a"]), default=str),
+                       record_b=json.dumps(_snapshot(p["b"]), default=str),
+                       similarity_score=p["similarity_score"], reason=p["reason"])
+            for p in dedup_stats.get("review_pairs", [])
+        ] + [
+            ReviewItem(run_id=run_id, item_type="junk", status="pending", id_type="csv_row",
+                       record_a_ref=l.get("row_index") or 0, record_a=json.dumps(_snapshot(l), default=str),
+                       reason=l.get("junk_reason"))
+            for l in assigned_leads if l.get("is_junk")
+        ] + [
+            # Rows dropped at cleaning (no email and no phone) are queued too; they are not in clean_leads
+            ReviewItem(run_id=run_id, item_type="junk", status="pending", id_type="csv_row",
+                       record_a_ref=r.get("row_number") or 0, record_a=json.dumps(r, default=str),
+                       reason=f"Dropped at cleaning: {r.get('reason')}")
+            for r in rejected_rows
+        ]
+        for i in range(0, len(review_models), chunk_size):
+            db.bulk_save_objects(review_models[i:i + chunk_size])
+
         db.commit()
         timings["db_bulk_persist_ms"] = round((time.perf_counter() - t0) * 1000, 2)
 
@@ -269,6 +319,8 @@ def execute_smart_pipeline(
             "junk_removed": clean_stats["junk_rows_count"],
             "fields_fixed": clean_stats["fields_fixed_count"],
             "rejected_rows_count": len(rejected_rows),
+            "borderline_pairs_queued_for_review": len(dedup_stats.get("review_pairs", [])),
+            "quality_before": quality_before,
             "distribution": score_summary["distribution"],
             "total_time_ms": total_duration_ms,
             "total_time_seconds": round(total_duration_ms / 1000.0, 2)

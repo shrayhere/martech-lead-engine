@@ -1,0 +1,66 @@
+title,persona,buying_role,interest
+Chief Executive,Executive,Decision Maker,Business Strategy & ROI
+Co-founder and CEO,Executive,Decision Maker,Business Strategy & ROI
+Founder/CEO,Executive,Decision Maker,Business Strategy & ROI
+Owner & Operator,Executive,Decision Maker,Business Strategy & ROI
+"EVP, Chief Financial Officer",Executive,Decision Maker,Business Strategy & ROI
+Chief Marketing & Growth Officer,Executive,Decision Maker,Demand Generation
+SVP & Chief Revenue Officer,Executive,Decision Maker,Sales Productivity
+Chief Technical Officer,Executive,Decision Maker,Technical Integration
+Global CIO,Executive,Decision Maker,Technical Integration
+"VP, Demand Generation",Marketing,Decision Maker,Demand Generation
+Vice President of Growth Marketing,Marketing,Decision Maker,Demand Generation
+Head of Content,Marketing,Decision Maker,Demand Generation
+"Director, Field Marketing",Marketing,Influencer,Demand Generation
+Senior Marketing Manager,Marketing,Influencer,Demand Generation
+Lifecycle Marketing Manager,Marketing,Influencer,Demand Generation
+Content Strategist,Marketing,End User,Demand Generation
+Email Marketing Specialist,Marketing,End User,Demand Generation
+Social Media Specialist,Marketing,End User,Demand Generation
+"VP Sales, North America",Sales,Decision Maker,Sales Productivity
+"Vice President, Global Sales",Sales,Decision Maker,Sales Productivity
+Head of Inside Sales,Sales,Decision Maker,Sales Productivity
+Area Sales Director,Sales,Influencer,Sales Productivity
+"Director, Strategic Accounts",Sales,Influencer,Sales Productivity
+Sales Team Manager,Sales,Influencer,Sales Productivity
+Enterprise Sales Manager,Sales,Influencer,Sales Productivity
+Mid-Market Account Executive,Sales,End User,Sales Productivity
+"Junior SDR, EMEA",Sales,End User,Sales Productivity
+Outbound SDR,Sales,End User,Sales Productivity
+Business Development Associate,Sales,End User,Sales Productivity
+Senior Customer Success Manager,Sales,End User,Sales Productivity
+"VP, Engineering & Infrastructure",Technical,Decision Maker,Technical Integration
+Head of Platform Engineering,Technical,Decision Maker,Technical Integration
+"Director, IT Infrastructure",Technical,Influencer,Technical Integration
+Software Engineering Manager,Technical,Influencer,Technical Integration
+Staff Software Engineer,Technical,Influencer,Technical Integration
+Principal Solutions Architect,Technical,Influencer,Technical Integration
+Java Developer,Technical,End User,Technical Integration
+Cloud Engineer,Technical,End User,Technical Integration
+Information Security Analyst,Technical,End User,Technical Integration
+Help Desk Technician,Technical,End User,Technical Integration
+Senior Data Scientist,Technical,End User,Data & Analytics
+Analytics Engineer,Technical,End User,Data & Analytics
+VP of Data & Analytics,Technical,Decision Maker,Data & Analytics
+VP Product Management,Product,Decision Maker,Technical Integration
+Director of Product,Product,Influencer,Technical Integration
+Principal Product Manager,Product,Influencer,Technical Integration
+Technical Product Manager,Product,Influencer,Technical Integration
+UI/UX Designer,Product,End User,Technical Integration
+"Vice President, Revenue & Sales Operations",Operations,Decision Maker,Data & Analytics
+Revenue Operations Director,Operations,Influencer,Data & Analytics
+Sales Ops & Enablement Manager,Operations,Influencer,Data & Analytics
+Marketing Ops Analyst,Operations,End User,Data & Analytics
+Senior Salesforce Admin,Operations,End User,Data & Analytics
+Senior Business Analyst,Operations,End User,Data & Analytics
+Senior BI Reporting Analyst,Operations,End User,Data & Analytics
+Head of Finance,Operations,Decision Maker,Business Strategy & ROI
+Finance Director,Operations,Influencer,Business Strategy & ROI
+Senior Financial Analyst,Operations,End User,Business Strategy & ROI
+Procurement Specialist,Operations,End User,Business Strategy & ROI
+Director of Operations,Operations,Influencer,Business Strategy & ROI
+Operations Specialist,Operations,End User,Business Strategy & ROI
+Executive Assistant to the CEO,Operations,End User,Business Strategy & ROI
+test user,Unknown,Unknown,Unknown
+dummy,Unknown,Unknown,Unknown
+xxx,Unknown,Unknown,Unknown

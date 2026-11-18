@@ -19,7 +19,23 @@ from typing import Any, Dict, Optional, Tuple
 from rapidfuzz import fuzz
 
 FIRST_NAME_MIN_SIMILARITY = 85.0
-REVIEW_BAND = (80.0, 90.0)  # composite scores in this range are reported as borderline
+# Guarded fuzzy pairs scoring inside this band are NOT merged automatically: they go to the human
+# review queue (review_items). Pairs at or above the upper bound (and the configured threshold) auto-merge.
+REVIEW_BAND = (80.0, 90.0)
+
+
+def auto_merge_min(threshold: float) -> float:
+    """Lowest composite score that merges without review."""
+    return max(float(threshold), REVIEW_BAND[1])
+
+
+def classify_fuzzy_score(score: float, threshold: float) -> str:
+    """'merge', 'review' or 'none' for a guarded fuzzy pair that passed the name/company guards."""
+    if score >= auto_merge_min(threshold):
+        return "merge"
+    if score >= REVIEW_BAND[0]:
+        return "review"
+    return "none"
 
 GENERIC_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com",

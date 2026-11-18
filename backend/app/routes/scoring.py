@@ -32,7 +32,7 @@ def get_scored_leads(
     Retrieves clean leads with scores, color bands (Hot/Warm/Cold), and signal breakdown.
     Supports filtering by score band (Hot/Warm/Cold) and industry.
     """
-    query = db.query(CleanLead).filter(CleanLead.is_junk == False)
+    query = db.query(CleanLead).filter(CleanLead.is_junk == False, CleanLead.run_id.is_(None))
     
     if band:
         query = query.filter(CleanLead.score_band == band)

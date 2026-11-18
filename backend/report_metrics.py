@@ -24,7 +24,8 @@ def collect():
     from app.database import SessionLocal
     from app.main import app
     from app.models.schemas import AssignmentLog, CleanLead, RawLead
-    from app.services.match_rules import composite_string, fuzzy_match
+    from app.services.match_rules import composite_string, fuzzy_match, classify_fuzzy_score
+    from app.services import classifier
 
     m = {}
     # ---- deduplication accuracy -------------------------------------------------------------
@@ -53,18 +54,31 @@ def collect():
     examples = [
         ({"first_name": "Jonathan", "last_name": "Smith", "company": "Acme Corp", "email": "jonathan.smith@acmecorp.com"},
          {"first_name": "Jonathon", "last_name": "Smith", "company": "Acme Corporation", "email": "jonathon.smith@acmecorp.com"}),
+        ({"first_name": "Michael", "last_name": "Rodriguez", "company": "Acme Corp", "email": "michael.rodriguez@acmecorp.com"},
+         {"first_name": "Micheal", "last_name": "Rodriguez", "company": "Acme Corp", "email": "m.rodriguez@acmecorp.com"}),
         ({"first_name": "Jordan", "last_name": "Davis", "company": "TechFlow Inc", "email": "jordan.davis@techflowinc.com"},
          {"first_name": "Jordan", "last_name": "Davis", "company": "TechFlow Corporation", "email": "jordan.davis.lead@techflowinc.com"}),
     ]
-    m["fuzzy_examples"] = [(fuzzy_match(a, b, 85.0), a, b) for a, b in examples]
+    m["fuzzy_examples"] = []
+    for a, b in examples:
+        passed, score, reason = fuzzy_match(a, b, 0.0)
+        decision = classify_fuzzy_score(score, 85.0) if passed else "none"
+        m["fuzzy_examples"].append(((decision, score, reason), a, b))
 
     # ---- end-to-end legacy pipeline ---------------------------------------------------------
     client = TestClient(app)
     csv = client.get("/api/leads/sample-csv").content
     client.post("/api/leads/upload", files={"file": ("sample.csv", csv, "text/csv")})
     clean = client.post("/api/leads/clean").json()
+    client.post("/api/leads/score?mode=rule")
     client.post("/api/leads/assign")
     m["clean"] = clean
+    # ---- additions: quality score, review queue, classification, HubSpot dry run --------------
+    m["quality"] = client.get("/api/quality/report").json()
+    m["review"] = client.get("/api/review?status=all").json()["summary"]
+    m["classify"] = client.post("/api/classify/run").json()
+    m["classifier_eval"] = classifier.evaluate("local")
+    m["hubspot_dry_run"] = client.post("/api/hubspot/sync", json={"dry_run": True}).json()["contacts_selected"]
     db = SessionLocal()
     try:
         raw = db.query(RawLead).all()

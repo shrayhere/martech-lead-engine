@@ -155,7 +155,7 @@ def run_lead_scoring(db: Session, scoring_mode: str = "rule") -> dict:
     - 'ml': Scikit-Learn Logistic Regression model
     Updates rule_score, ml_score, active_score, score_band, and score_breakdown on clean_leads.
     """
-    leads = db.query(CleanLead).filter(CleanLead.is_junk == False).all()
+    leads = db.query(CleanLead).filter(CleanLead.is_junk == False, CleanLead.run_id.is_(None)).all()
     if not leads:
         return {"error": "No clean leads available for scoring. Please run Data Quality stage first."}
 

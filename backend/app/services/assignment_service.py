@@ -68,7 +68,7 @@ def run_lead_assignment(db: Session) -> dict:
     if not reps:
         return {"error": "No sales reps found in database."}
 
-    leads = db.query(CleanLead).filter(CleanLead.is_junk == False).all()
+    leads = db.query(CleanLead).filter(CleanLead.is_junk == False, CleanLead.run_id.is_(None)).all()
     if not leads:
         return {"error": "No clean leads available for assignment."}
 
@@ -151,7 +151,7 @@ def run_lead_assignment(db: Session) -> dict:
         )
         assignment_logs.append(log_entry)
 
-    db.query(AssignmentLog).delete()
+    db.query(AssignmentLog).filter(AssignmentLog.run_id.is_(None)).delete(synchronize_session=False)
     db.bulk_save_objects(assignment_logs)
     db.commit()
 

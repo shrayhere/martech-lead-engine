@@ -344,8 +344,9 @@ def build_pdf(filename="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"):
     story.append(Paragraph(
         f"<i>Limit of this test:</i> in the sample data every planted duplicate still shares an email or phone with its original "
         f"({M['new_exact_merges']} of {M['new_merges']} merges are exact matches), so the fuzzy path is exercised by unit tests "
-        "(<code>backend/tests/test_dedup_rules.py</code>) rather than by this dataset. The threshold remains 85%; with the name guards "
-        "in place it no longer decides between colleagues.",
+        "(<code>backend/tests/test_dedup_rules.py</code>) rather than by this dataset. With the name guards in place the threshold "
+        "no longer decides between colleagues. Guarded fuzzy pairs merge automatically only at 90% or more; pairs scoring "
+        "80&ndash;90% go to the human review queue (section 5) instead of being merged.",
         callout_style
     ))
 
@@ -384,19 +385,25 @@ def build_pdf(filename="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"):
     story.append(Paragraph("2.3 Have you looked at borderline matches (80–90%)? What did they look like?", h2_style))
     story.append(Paragraph(
         "Yes. The pairs below are real outputs: the first rows are wrong merges the <b>old</b> rule made at 85% on the sample data "
-        "(different people, same company); the last rows are constructed typo pairs run through the <b>new</b> rule.",
+        "(different people, same company); the last rows are constructed typo pairs run through the <b>new</b> rule "
+        "(auto-merge at 90%+, review queue at 80&ndash;90%).",
         body_style
     ))
+    decision_label = {"merge": "<font color='#059669'><b>MERGED</b></font>",
+                      "review": "<font color='#2563eb'><b>REVIEW QUEUE</b></font>",
+                      "none": "<font color='#b45309'><b>NOT MERGED</b></font>"}
+    decision_note = {"merge": "", "review": ". Borderline: a person approves or rejects the merge.",
+                     "none": ". A true duplicate missed: below the review band, so nobody is asked."}
     bl = [[Paragraph(h, table_header_style) for h in ("Composite score", "Old rule", "New rule", "Record pair", "Why")]]
     for score, a, b in M["old_wrong_merges"][:4]:
         bl.append([Paragraph(f"<b>{score}%</b>", table_cell_style), Paragraph("<font color='#dc2626'><b>MERGED</b></font>", table_cell_style),
                    Paragraph("<font color='#059669'><b>KEPT SEPARATE</b></font>", table_cell_style),
                    Paragraph(f"• {a}<br/>• {b}", table_cell_style), Paragraph("Different last names: different people.", table_cell_style)])
-    for (ok, score, reason), a, b in M["fuzzy_examples"]:
+    for (decision, score, reason), a, b in M["fuzzy_examples"]:
         bl.append([Paragraph(f"<b>{score}%</b>", table_cell_style), Paragraph("-", table_cell_style),
-                   Paragraph("<font color='#059669'><b>MERGED</b></font>" if ok else "<font color='#b45309'><b>NOT MERGED</b></font>", table_cell_style),
+                   Paragraph(decision_label[decision], table_cell_style),
                    Paragraph(f"• {a['first_name']} {a['last_name']} | {a['company']} | {a['email']}<br/>• {b['first_name']} {b['last_name']} | {b['company']} | {b['email']}", table_cell_style),
-                   Paragraph(reason + ("" if ok else ". A true duplicate missed: this is the case a human review queue should catch."), table_cell_style)])
+                   Paragraph(reason.replace(" (threshold 0.0%)", "") + decision_note[decision], table_cell_style)])
     story.append(styled_table(bl, [55, 55, 70, 190, 158]))
 
     # Q2.4
@@ -566,6 +573,80 @@ def build_pdf(filename="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"):
         body_style
     ))
 
+    # =========================================================================
+    # SECTION 5: ADDITIONS (DATA-QUALITY SCORE, REVIEW QUEUE, AI CLASSIFICATION, HUBSPOT)
+    # =========================================================================
+    story.append(PageBreak())
+    story.append(Paragraph("5. Data-Quality Score, Review Queue, AI Classification & HubSpot Sync", h1_style))
+
+    Q = M["quality"]
+    qb, qa = Q["before"], Q["after"]
+    story.append(Paragraph("5.1 Data-quality score (before vs after cleaning)", h2_style))
+    story.append(Paragraph(
+        "The score is the average pass rate of eight checks: valid email, phone in E.164, 2-letter US state, job title, "
+        "company, industry, not an exact duplicate, not junk. Country and owner are shown but not scored. "
+        f"Before = the {qb['total_records']} uploaded rows; after = the {qa['total_records']} active clean leads "
+        f"({Q['junk_flagged_and_excluded']} junk rows are flagged and excluded).", body_style))
+    labels = [("Overall score", None), ("Valid email", "valid_email"), ("Phone in E.164", "phone_e164"),
+              ("2-letter US state", "state_standard"), ("Not an exact duplicate", "not_duplicate"),
+              ("Not junk", "not_junk"), ("Country present (not scored)", "has_country"),
+              ("Owner assigned (not scored)", "has_owner")]
+    dq_rows = [[Paragraph(h, table_header_style) for h in ("Check", "Before", "After")]]
+    for label, key in labels:
+        b = qb["score"] if key is None else qb["metrics"][key]
+        a = qa["score"] if key is None else qa["metrics"][key]
+        dq_rows.append([Paragraph(f"<b>{label}</b>", table_cell_style),
+                        Paragraph("n/a" if b is None else f"{b}%", table_cell_style),
+                        Paragraph(f"<b>{a}%</b>", table_cell_style)])
+    story.append(styled_table(dq_rows, [200, 120, 120]))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(
+        "<b>Top 5 issues before cleaning:</b> " + "; ".join(f"{i['issue']} ({i['records']} rows)" for i in qb["top_issues"])
+        + ". The sample file has no country column, so country is missing everywhere; it is reported but kept out of the score.",
+        body_style))
+
+    R = M["review"]
+    story.append(Paragraph("5.2 Human review queue", h2_style))
+    story.append(Paragraph(
+        f"Borderline guarded fuzzy pairs (80&ndash;90%) and every junk row now wait in <code>review_items</code> for a person to "
+        f"approve or reject (the <b>Review Queue</b> page). On the sample run: <b>{R['merge_pending']}</b> borderline pairs and "
+        f"<b>{R['junk_pending']}</b> junk rows queued. No sample pair lands in the band, because every planted duplicate shares an "
+        "email or phone; the borderline path is covered by tests (<code>backend/tests/test_new_features.py</code>). Approving a "
+        "merge archives the less complete record in <code>merged_leads_log</code>; rejecting a junk flag restores the lead.",
+        body_style))
+
+    E = M["classifier_eval"]
+    K = M["classify"]
+    story.append(Paragraph("5.3 AI classification: persona, buying role, interest &rarr; recommended action", h2_style))
+    story.append(Paragraph(
+        "A scikit-learn text classifier (word and character n-gram TF-IDF, logistic regression) labels each job title; "
+        "an optional Claude engine (<code>claude-opus-5-5</code>) applies the same written definitions when an API key is set. "
+        "Business rules then combine buying role and score band into a next action (e.g. Decision Maker + Hot &rarr; "
+        "book a discovery call within 24 hours).", body_style))
+    acc_rows = [[Paragraph(h, table_header_style) for h in ("Label", "Accuracy on held-out titles")]]
+    for t in ("persona", "buying_role", "interest"):
+        acc_rows.append([Paragraph(f"<b>{t}</b>", table_cell_style), Paragraph(f"{E['accuracy_pct'][t]}%", table_cell_style)])
+    acc_rows.append([Paragraph("<b>all three correct</b>", table_cell_style),
+                     Paragraph(f"{E['all_three_correct_pct']}%", table_cell_style)])
+    story.append(styled_table(acc_rows, [200, 200]))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph(
+        f"<i>Limit:</i> {E['test_titles']} test titles, none in the {E['train_titles']} training titles, both labelled by hand "
+        "for this project. This shows the model follows the definitions on unseen wording; it does not show the labels predict "
+        f"purchases. On the sample, {K['leads_classified']} leads were classified "
+        f"({K['distribution']['buying_role'].get('Decision Maker', 0)} decision makers). Errors are listed in "
+        "<code>docs/classification_evaluation.md</code>.", callout_style))
+
+    story.append(Paragraph("5.4 HubSpot sync and automation matrix", h2_style))
+    story.append(Paragraph(
+        f"<code>POST /api/hubspot/sync</code> upserts contacts by email (100 per call) with seven custom properties "
+        f"(score, band, persona, buying role, interest, next action, rep). A dry run on the sample selects "
+        f"<b>{M['hubspot_dry_run']}</b> contacts (junk and email-less rows excluded). The token is read only from "
+        "<code>HUBSPOT_ACCESS_TOKEN</code>. The live push and the score-based HubSpot workflow are set up by following "
+        "<code>docs/hubspot_setup.md</code>; they were not run against a portal while producing this report. "
+        "<code>docs/automation_opportunity_matrix.md</code> rates each lead-operations task by impact and effort.",
+        body_style))
+
     # Build Document
     doc.build(story, canvasmaker=NumberedCanvas)
     print(f"PDF successfully generated: {filename}")
@@ -573,3 +654,8 @@ def build_pdf(filename="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"):
 if __name__ == "__main__":
     output_filename = "MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
     build_pdf(output_filename)
+    # The frontend serves its own copy (Header "Report (PDF)" button); keep the two identical.
+    import shutil
+    public_copy = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "public", output_filename)
+    shutil.copyfile(output_filename, public_copy)
+    print(f"Copied to {public_copy}")

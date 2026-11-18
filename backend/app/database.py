@@ -23,10 +23,11 @@ def get_db():
         db.close()
 
 def ensure_sqlite_columns(target_engine):
-    """Ensures newly added columns exist in existing SQLite databases."""
-    if not str(target_engine.url).startswith("sqlite"):
-        return
-    from sqlalchemy import text
+    """Adds newly introduced columns to tables that already exist (create_all never alters tables).
+    Works on SQLite and Postgres."""
+    from sqlalchemy import text, inspect
+    is_sqlite = str(target_engine.url).startswith("sqlite")
+    float_type = "REAL" if is_sqlite else "DOUBLE PRECISION"
     with target_engine.connect() as conn:
         needed_cols = {
             "clean_leads": [
@@ -35,7 +36,15 @@ def ensure_sqlite_columns(target_engine):
                 ("country", "VARCHAR"),
                 ("lead_source", "VARCHAR"),
                 ("created_date", "VARCHAR"),
-                ("extra_fields", "TEXT")
+                ("extra_fields", "TEXT"),
+                ("source_row", "INTEGER"),
+                ("persona", "VARCHAR"),
+                ("buying_role", "VARCHAR"),
+                ("interest", "VARCHAR"),
+                ("classification_confidence", float_type),
+                ("classification_engine", "VARCHAR"),
+                ("recommended_action", "VARCHAR"),
+                ("hubspot_synced_at", "VARCHAR"),
             ],
             "merged_leads_log": [
                 ("run_id", "VARCHAR"),
@@ -49,12 +58,12 @@ def ensure_sqlite_columns(target_engine):
                 ("run_id", "VARCHAR")
             ]
         }
+        inspector = inspect(conn)
         for tbl, cols in needed_cols.items():
             try:
-                res = conn.execute(text(f"PRAGMA table_info({tbl})")).fetchall()
-                existing = [r[1] for r in res]
-                if not existing:
+                if not inspector.has_table(tbl):
                     continue
+                existing = [c["name"] for c in inspector.get_columns(tbl)]
                 for col_name, col_type in cols:
                     if col_name not in existing:
                         conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col_name} {col_type}"))

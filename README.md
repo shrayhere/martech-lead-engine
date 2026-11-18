@@ -17,7 +17,7 @@ An enterprise-grade B2B Marketing & Sales Data Quality, Fuzzy Deduplication, Lea
 
 ### 2. Data Quality & RapidFuzz Deduplication Pipeline (`POST /api/leads/clean`)
 - **Field Normalization**: Standardizes US state names/abbreviations (`"California"`, `"calif"` → `"CA"`), formats phone numbers to international **E.164** standard (`"+15552345678"`), and normalizes company casing.
-- **Deduplication**: Merges records with the same email or phone. A fuzzy match (for typos without a shared identifier) also requires the **same last name**, a **first name ≥ 85% similar** and the **same company or email domain**, then a RapidFuzz `token_sort_ratio` of the composite `name | company | email` ≥ 85% (`backend/app/services/match_rules.py`).
+- **Deduplication**: Merges records with the same email or phone. A fuzzy match (for typos without a shared identifier) also requires the **same last name**, a **first name ≥ 85% similar** and the **same company or email domain**, then a RapidFuzz `token_sort_ratio` of the composite `name | company | email`. Guarded pairs at **≥ 90%** merge automatically; pairs at **80–90%** go to the human review queue instead (`backend/app/services/match_rules.py`).
 - **Junk Detection**: Flags rows missing both email and phone, or containing placeholder strings like `"test"`, `"n/a"`, `"asdf"`.
 - **Merge & Audit Trail**: Keeps the most complete/recent lead in `clean_leads` and archives secondary duplicates in the audit log `merged_leads_log`.
 
@@ -38,6 +38,27 @@ An enterprise-grade B2B Marketing & Sales Data Quality, Fuzzy Deduplication, Lea
   - **Rule 3**: Industry Specialty Match Only.
   - **Rule 4 (Fallback)**: Round-Robin Load-Balancing (assigns to rep with lowest active lead count).
 - Generates human-readable routing audit rationale (e.g. `"Assigned to Rep Sarah Jenkins: territory match (CA) + industry match (SaaS)"`).
+
+### 5. Data-Quality Score & Dashboard (`GET /api/quality/report`, **DQ Score** page)
+- Before (as uploaded) vs after (active clean leads) for: valid email, phone in E.164, 2-letter US state, job title / company / industry present, exact duplicates, junk, plus **% missing country** and **% missing owner** (reported, not scored).
+- Overall score = average pass rate of the 8 scored checks; **top 5 issues** listed for both sides.
+- On the 200-row sample: score **77.4 → 100**, phones in E.164 20.5% → 100%, states as codes 23.5% → 100%. The sample has no country column, so country is 100% missing on both sides.
+
+### 6. Human Review Queue (`GET /api/review`, `POST /api/review/{id}/approve|reject`, **Review** page)
+- Borderline guarded duplicate pairs (80–90%) are **not** auto-merged; junk rows (including pipeline rows dropped for having no email and no phone) are queued instead of silently discarded.
+- Approve a merge → the less complete record is archived in `merged_leads_log` ("Approved by reviewer"). Reject a junk flag → the lead is restored as active.
+
+### 7. AI Classification (`POST /api/classify/run`, **AI Classify** page)
+- Labels **persona**, **buying role** and **interest** from the job title, then **business rules** combine buying role and score band into a recommended action (e.g. Decision Maker + Hot → "book a discovery call within 24 hours").
+- Engines: a local scikit-learn text classifier (always on, runs automatically in Smart Upload) and an optional **Claude** engine (`claude-opus-5-5`, structured JSON output) when `ANTHROPIC_API_KEY` is set.
+- Accuracy on 65 held-out, hand-labelled titles not seen in training: persona 98.5%, buying role 96.9%, interest 95.4% (all three right: 93.8%). See [`docs/classification_evaluation.md`](docs/classification_evaluation.md). This shows the model follows the label definitions; it does not show the labels predict purchases.
+
+### 8. HubSpot Sync (`POST /api/hubspot/sync`, **HubSpot** page)
+- Upserts clean, scored, classified leads into HubSpot contacts by email (100 per call) with custom properties `mle_lead_score`, `mle_score_band`, `mle_persona`, `mle_buying_role`, `mle_interest`, `mle_recommended_action`, `mle_assigned_rep`.
+- Dry run by default; a real push needs `HUBSPOT_ACCESS_TOKEN` on the server. Setup and the score-based workflow: [`docs/hubspot_setup.md`](docs/hubspot_setup.md).
+
+### 9. Automation Opportunity Matrix
+- [`docs/automation_opportunity_matrix.md`](docs/automation_opportunity_matrix.md): impact × effort for each lead-operations task and what this project automates.
 
 ---
 
@@ -96,7 +117,15 @@ python -m pytest -q
 # Deduplication accuracy report / performance benchmark (benchmark uses its own temporary database)
 python evaluate_dedup.py
 python benchmark.py
+
+# AI classification accuracy on held-out titles (writes docs/classification_evaluation.md)
+python evaluate_classifier.py
+
+# Optional, never commit these: enable HubSpot push and the Claude classification engine
+# $env:HUBSPOT_ACCESS_TOKEN = "..."   (PowerShell)  /  export HUBSPOT_ACCESS_TOKEN=...  (bash)
+# $env:ANTHROPIC_API_KEY = "..."
 ```
+- `benchmark.py` targets < 10 s for 10,000 rows. On the development PC it took 10.2–12.4 s (most of it fuzzy dedup), so that target is currently missed.
 - API Documentation available at: `http://127.0.0.1:8000/docs`
 
 ### 3. Frontend Setup (React + Vite + Tailwind CSS)
@@ -126,6 +155,7 @@ SQLite does **not** persist on Render: the service disk is wiped on every deploy
 1. In Render: **New → Blueprint**, pick this repository. It creates `martech-db` and the `martech-lead-engine-api` web service (`rootDir: backend`).
 2. Set `CORS_ORIGINS` to your exact Vercel URL (comma-separated for several). Production and preview URLs matching `https://martech-lead-engine*.vercel.app` are allowed by default through `CORS_ORIGIN_REGEX`.
 3. Render's free Postgres plan expires after 30 days. Use a paid plan for data you need to keep.
+4. Optional secrets (`sync: false` in `render.yaml`, so Render asks for them and they never live in git): `HUBSPOT_ACCESS_TOKEN` (HubSpot push), `ANTHROPIC_API_KEY` (Claude classification engine).
 
 Postgres support is configured but has not been tested against a live Postgres server here. The test suite runs on SQLite.
 
@@ -140,21 +170,27 @@ martech-lead-engine/
 │   │   ├── config.py            # Scoring weights & RapidFuzz thresholds
 │   │   ├── database.py          # SQLAlchemy connection (SQLite locally, Postgres on Render)
 │   │   ├── models/schemas.py    # SQLAlchemy database models
-│   │   ├── routes/              # API endpoints (ingestion, cleaning, scoring, assignment)
-│   │   ├── services/            # Core business logic algorithms
-│   │   └── ml/                  # Scikit-learn Logistic Regression classifier
+│   │   ├── routes/              # API endpoints (ingestion, cleaning, scoring, assignment,
+│   │   │                        #   quality, review, classify, hubspot)
+│   │   ├── services/            # Core business logic (quality_service, review_service,
+│   │   │                        #   classifier, hubspot_sync, ...)
+│   │   └── ml/                  # Lead-scoring model + hand-labelled job-title train/test sets
 │   ├── evaluate_dedup.py        # dedup accuracy vs. generator ground truth
+│   ├── evaluate_classifier.py   # classification accuracy on held-out titles
 │   ├── report_metrics.py        # computes every number in the PDF report
 │   ├── benchmark.py             # performance benchmark (temporary database)
 │   ├── tests/
 │   └── requirements.txt         # exact pinned versions
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # Upload, Data Quality, Scoring, Assignment pages
+│   │   ├── components/          # Upload, Data Quality, Scoring, Assignment, DQ Score,
+│   │   │                        #   Review, AI Classify, HubSpot pages
 │   │   ├── App.jsx              # Main tab routing & state
 │   │   └── index.css            # Tailwind & glassmorphism custom styles
 │   ├── package.json
 │   └── vercel.json
+├── docs/                        # dedup + classification evaluations, HubSpot setup,
+│                                #   automation opportunity matrix
 ├── render.yaml                  # Render Blueprint (API + Postgres)
 ├── generate_pdf_report.py       # regenerates the architecture report from measured numbers
 └── README.md

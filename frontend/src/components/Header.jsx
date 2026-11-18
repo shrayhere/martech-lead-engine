@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, Layers, FileDown, Zap, Flame, Clock } from 'lucide-react';
+import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, FileDown, Zap, Flame, Gauge, ClipboardCheck, Brain, Send } from 'lucide-react';
 
 export default function Header({
   activeTab,
@@ -17,12 +17,16 @@ export default function Header({
     { id: 'quality', label: '2. Quality & Dedup', icon: ShieldCheck, badge: rawCount > 0 ? `${rawCount}` : null },
     { id: 'scoring', label: '3. Lead Scoring', icon: Cpu, badge: cleanCount > 0 ? `${cleanCount}` : null },
     { id: 'assignment', label: '4. Rep Routing', icon: UserCheck },
+    { id: 'dq', label: 'DQ Score', icon: Gauge },
+    { id: 'review', label: 'Review', icon: ClipboardCheck },
+    { id: 'classify', label: 'AI Classify', icon: Brain },
+    { id: 'hubspot', label: 'HubSpot', icon: Send },
   ];
 
   return (
     <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between pt-3 pb-2">
           {/* Logo & Branding */}
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-lg shadow-indigo-500/20 flex items-center justify-center">
@@ -45,9 +49,21 @@ export default function Header({
             </div>
           </div>
 
-          {/* Navigation Tabs & Run Selector */}
-          <div className="flex items-center space-x-2">
-            <nav className="flex space-x-1 sm:space-x-1.5 overflow-x-auto py-1">
+          {/* Direct PDF Report Download Button */}
+          <a
+            href="/MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+            download="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm"
+            title="Download Architecture & QA Report PDF"
+          >
+            <FileDown className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Report (PDF)</span>
+          </a>
+        </div>
+
+        {/* Navigation Tabs: second row, wraps instead of widening the page */}
+        <div className="pb-2">
+            <nav className="flex flex-wrap gap-1 sm:gap-1.5 py-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -55,10 +71,10 @@ export default function Header({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all shrink-0 cursor-pointer ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all shrink-0 cursor-pointer border ${
                       isActive
                         ? 'bg-indigo-600/25 text-indigo-300 border border-indigo-500/50 shadow-sm font-semibold'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`}
                   >
                     <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
@@ -72,18 +88,6 @@ export default function Header({
                 );
               })}
             </nav>
-
-            {/* Direct PDF Report Download Button */}
-            <a
-              href="/MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
-              download="MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm"
-              title="Download Architecture & QA Report PDF"
-            >
-              <FileDown className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Report (PDF)</span>
-            </a>
-          </div>
         </div>
       </div>
     </header>

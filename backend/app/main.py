@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, ensure_sqlite_columns
 from app.routes import ingestion, cleaning, scoring, assignment, pipeline, band_leads
+from app.routes import quality, review, classification, hubspot
 
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
@@ -36,6 +37,10 @@ app.include_router(ingestion.router, prefix="/api")
 app.include_router(cleaning.router, prefix="/api")
 app.include_router(scoring.router, prefix="/api")
 app.include_router(assignment.router, prefix="/api")
+app.include_router(quality.router, prefix="/api")
+app.include_router(review.router, prefix="/api")
+app.include_router(classification.router, prefix="/api")
+app.include_router(hubspot.router, prefix="/api")
 
 @app.get("/")
 def root():

@@ -6,6 +6,10 @@ import UploadPage from './components/UploadPage';
 import DataQualityPage from './components/DataQualityPage';
 import ScoringPage from './components/ScoringPage';
 import AssignmentPage from './components/AssignmentPage';
+import QualityScorePage from './components/QualityScorePage';
+import ReviewQueuePage from './components/ReviewQueuePage';
+import ClassificationPage from './components/ClassificationPage';
+import HubSpotPage from './components/HubSpotPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('smart'); // Default to Smart Upload
@@ -119,6 +123,10 @@ export default function App() {
           />
         )}
         {activeTab === 'assignment' && <AssignmentPage />}
+        {activeTab === 'dq' && <QualityScorePage runs={runs} />}
+        {activeTab === 'review' && <ReviewQueuePage runs={runs} />}
+        {activeTab === 'classify' && <ClassificationPage runs={runs} />}
+        {activeTab === 'hubspot' && <HubSpotPage runs={runs} />}
       </main>
 
       {/* Footer */}
