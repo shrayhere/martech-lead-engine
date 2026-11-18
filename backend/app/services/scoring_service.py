@@ -1,22 +1,30 @@
 import json
 import math
+import re
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.models.schemas import CleanLead
 from app.config import settings
 from app.ml.scoring_model import ml_scorer
 
+def _has_keyword(title: str, keywords) -> bool:
+    """Whole-word match: plain substring matching found "cto" inside "director", so every
+    Director was scored as C-level."""
+    return any(re.search(r"(?<![a-z])" + re.escape(k) + r"(?![a-z])", title) for k in keywords)
+
+
 def classify_seniority(job_title: str) -> tuple[int, str]:
     """Classifies job title into seniority tier score and human label."""
     if not job_title:
         return 25, "Individual Contributor"
-    
+
     t = job_title.lower()
-    if any(k in t for k in settings.C_LEVEL_KEYWORDS):
+    # "Vice President" is VP tier, not "President"
+    if _has_keyword(t.replace("vice president", "vp"), settings.C_LEVEL_KEYWORDS):
         return 100, "C-Level / Founder"
-    elif any(k in t for k in settings.VP_DIRECTOR_KEYWORDS):
+    elif _has_keyword(t, settings.VP_DIRECTOR_KEYWORDS):
         return 80, "VP / Director"
-    elif any(k in t for k in settings.MANAGER_KEYWORDS):
+    elif _has_keyword(t, settings.MANAGER_KEYWORDS):
         return 50, "Manager / Sr Lead"
     return 25, "Staff / Contributor"
 
