@@ -69,8 +69,13 @@ class MergedLeadLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     run_id = Column(String, index=True, nullable=True)
+    # winner_lead_id: clean_leads.id of the kept record (0 when not known, e.g. bulk pipeline runs).
     winner_lead_id = Column(Integer, nullable=False)
+    # winner_raw_lead_id / archived_raw_lead_id use the SAME id space, described by id_type:
+    #   "raw_lead_id" -> raw_leads.id (legacy /api/leads/clean), "csv_row" -> row number in the uploaded file (pipeline)
+    winner_raw_lead_id = Column(Integer, nullable=True)
     archived_raw_lead_id = Column(Integer, nullable=False)
+    id_type = Column(String, nullable=True)
     archived_lead_name = Column(String, nullable=True)
     archived_company = Column(String, nullable=True)
     archived_email = Column(String, nullable=True)

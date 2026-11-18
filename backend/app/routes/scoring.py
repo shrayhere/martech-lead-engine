@@ -1,3 +1,4 @@
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -8,7 +9,7 @@ from app.config import settings
 router = APIRouter(prefix="/leads", tags=["Scoring"])
 
 @router.post("/score")
-def trigger_scoring(mode: str = Query("rule", enum=["rule", "ml"]), db: Session = Depends(get_db)):
+def trigger_scoring(mode: Literal["rule", "ml"] = Query("rule"), db: Session = Depends(get_db)):
     """
     Triggers lead scoring pipeline across all clean leads.
     Supports toggle between 'rule' (Weighted Rule-Based) and 'ml' (Scikit-Learn ML Classifier).

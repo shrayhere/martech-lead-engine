@@ -1,8 +1,22 @@
 import time
 import json
 import uuid
+import math
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+
+def sanitize_for_json(obj: Any) -> Any:
+    """Recursively replaces NaN and Inf floats with None for strict JSON compliance."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    return obj
+
 
 from app.database import SessionLocal
 from app.models.schemas import RawLead, CleanLead, MergedLeadLog, CleaningLog, AssignmentLog, PipelineRun
@@ -47,7 +61,8 @@ def execute_smart_pipeline(
     filename: str,
     run_id: Optional[str] = None,
     mapping_override: Optional[Dict[str, str]] = None,
-    scoring_mode: str = "rule"
+    scoring_mode: str = "rule",
+    db: Optional[Session] = None
 ) -> Dict[str, Any]:
     """
     Executes the One-Shot End-to-End Pipeline:
@@ -62,7 +77,10 @@ def execute_smart_pipeline(
     run_id = run_id or str(uuid.uuid4())
     FILE_CACHE[run_id] = file_bytes
 
-    db = SessionLocal()
+    own_session = False
+    if db is None:
+        db = SessionLocal()
+        own_session = True
     total_start = time.perf_counter()
     timings = {}
 
@@ -193,8 +211,10 @@ def execute_smart_pipeline(
         merged_log_models = [
             MergedLeadLog(
                 run_id=run_id,
-                winner_lead_id=0,  # cluster leader
+                winner_lead_id=0,  # clean_leads ids are not known before the bulk insert
+                winner_raw_lead_id=m["winner_raw_lead_id"],
                 archived_raw_lead_id=m["archived_raw_lead_id"],
+                id_type=m["id_type"],
                 archived_lead_name=m["archived_lead_name"],
                 archived_company=m["archived_company"],
                 archived_email=m["archived_email"],
@@ -244,6 +264,7 @@ def execute_smart_pipeline(
         summary = {
             "rows_in": len(raw_df),
             "rows_out": len(assigned_leads),
+            "active_leads": len(assigned_leads) - clean_stats["junk_rows_count"],
             "duplicates_merged": dedup_stats["duplicates_merged"],
             "junk_removed": clean_stats["junk_rows_count"],
             "fields_fixed": clean_stats["fields_fixed_count"],
@@ -274,7 +295,7 @@ def execute_smart_pipeline(
 
         update_run_progress(run_id, "completed", 100, "completed", db)
 
-        return {
+        return sanitize_for_json({
             "success": True,
             "run_id": run_id,
             "filename": filename,
@@ -284,7 +305,7 @@ def execute_smart_pipeline(
             "re_normalized_weights": score_summary["re_normalized_weights"],
             "timings": timings,
             "rejected_rows": rejected_rows
-        }
+        })
 
     except Exception as e:
         db.rollback()
@@ -299,4 +320,5 @@ def execute_smart_pipeline(
             pass
         raise e
     finally:
-        db.close()
+        if own_session:
+            db.close()

@@ -1,0 +1,19 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Create account{% endblock %}
+{% block form %}
+<h1>Create your account</h1>
+<p class="muted" style="margin:0 0 22px">Your contacts, companies and imports are private to your account.</p>
+<form id="auth-form" novalidate>
+  <div class="form-error hidden" id="form-error"></div>
+  <div class="field"><label for="full_name">Full name</label>
+    <input class="input" id="full_name" name="full_name" autocomplete="name" required autofocus></div>
+  <div class="field"><label for="email">Work email</label>
+    <input class="input" id="email" name="email" type="email" autocomplete="email" required></div>
+  <div class="field"><label for="password">Password</label>
+    <input class="input" id="password" name="password" type="password" autocomplete="new-password" required minlength="8">
+    <span class="hint">At least 8 characters, with a letter and a number.</span></div>
+  <button class="btn primary" type="submit" id="submit-btn">Create account</button>
+</form>
+<p class="small muted" style="margin-top:18px">Already have an account? <a href="/login">Log in</a></p>
+{% endblock %}
+{% block mode %}register{% endblock %}

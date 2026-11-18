@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Companies{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Companies</h1><p>Accounts and the contacts associated with them.</p></div>
+  <div class="page-actions">
+    <button class="btn" id="export-btn">Export CSV</button>
+    <button class="btn primary" id="add-btn">+ New company</button>
+  </div>
+</div>
+<div class="card">
+  <div class="toolbar">
+    <input class="input grow" type="search" id="q" placeholder="Search by company name, website or city…">
+    <select class="input" id="industry" style="width:auto"><option value="">All industries</option></select>
+    <select class="input" id="country" style="width:auto"><option value="">All countries</option></select>
+    <select class="input" id="has" style="width:auto"><option value="">With or without contacts</option><option value="1">Has contacts</option><option value="0">No contacts</option></select>
+  </div>
+  <div class="table-wrap"><table class="table" id="table"><thead><tr>
+    <th data-sort="name">Company</th><th data-sort="industry">Industry</th><th class="hide-sm">Location</th>
+    <th data-sort="contacts" data-default="desc">Contacts</th><th data-sort="hot" data-default="desc">Lead mix (Hot · Warm · Cold)</th>
+    <th class="hide-sm">Last activity</th><th data-sort="created" data-default="desc" class="hide-sm">Created</th><th></th>
+  </tr></thead><tbody id="body"></tbody></table></div>
+  <div class="pagination" id="pages"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/companies.js') }}"></script>
+{% endblock %}

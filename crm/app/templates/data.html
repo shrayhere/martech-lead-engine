@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Data Management{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Data Management</h1><p>Data quality, duplicate review and the audit trail for your CRM.</p></div>
+  <div class="page-actions">
+    <button class="btn" id="scan">Scan for duplicates</button>
+    <a class="btn" href="/api/duplicates/export">Export duplicates CSV</a>
+  </div>
+</div>
+<div class="grid grid-3" id="quality"></div>
+
+<div class="card mt-lg">
+  <div class="card-head"><div><h3>Duplicate review</h3><p>Uncertain matches are never merged automatically. Choose what to do with each one.</p></div>
+    <div class="segmented" id="dup-status"><button data-s="pending" class="active">Pending</button><button data-s="all">All</button>
+      <button data-s="merged">Merged</button><button data-s="updated_existing">Updated</button><button data-s="kept_existing">Kept</button><button data-s="not_duplicate">Not duplicates</button></div></div>
+  <div class="card-body" id="dups"></div>
+  <div class="pagination" id="dup-pages"></div>
+</div>
+
+<div class="card mt-lg">
+  <div class="card-head"><div><h3>Audit log</h3><p>Every create, update, delete, override, import and merge you perform</p></div>
+    <select class="input sm" id="audit-type" style="width:auto"><option value="">All entities</option><option value="contact">Contacts</option>
+      <option value="company">Companies</option><option value="activity">Activities</option><option value="import">Imports</option>
+      <option value="duplicate">Duplicates</option><option value="scoring_rules">Scoring rules</option></select></div>
+  <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Entity</th><th>Operation</th><th>Changes</th></tr></thead><tbody id="audit"></tbody></table></div>
+  <div class="pagination" id="audit-pages"></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/pages/data.js') }}"></script>{% endblock %}

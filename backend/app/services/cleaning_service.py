@@ -1,7 +1,7 @@
 import re
 import json
 from datetime import datetime
-from rapidfuzz import fuzz
+from app.services.match_rules import fuzzy_match
 from sqlalchemy.orm import Session
 from app.models.schemas import RawLead, CleanLead, MergedLeadLog
 from app.config import settings
@@ -143,7 +143,7 @@ def run_cleaning_pipeline(db: Session) -> dict:
     1. Reads all raw_leads records.
     2. Normalizes state, phone, name, and company fields.
     3. Identifies junk rows.
-    4. Groups records into fuzzy duplicate clusters using RapidFuzz (threshold 85%).
+    4. Groups duplicates: exact email/phone, or a guarded fuzzy match (see match_rules.py).
     5. Selects the most complete/recent lead in each cluster as winner (`clean_leads`).
     6. Archives secondary duplicates into `merged_leads_log`.
     7. Computes before/after completeness and duplicate metrics.
@@ -198,12 +198,9 @@ def run_cleaning_pipeline(db: Session) -> dict:
             "junk_reason": junk_reason
         })
 
-    # RapidFuzz Cluster Deduplication
-    # We construct a composite fuzzy string for matching: "First Last | Company | Email"
-    # Why 85% threshold was chosen:
-    # Empirical research on B2B lead datasets shows 85% token_sort_ratio catches typos like
-    # 'Jonathon Smith' vs 'Jonathan Smith' or 'Acme Corp' vs 'Acme Corporation' without causing
-    # false positive merges between distinct people with similar names at different companies.
+    # Cluster deduplication. Records merge on an exact email/phone match, or on a guarded fuzzy
+    # match (same last name, near-identical first name, same company/domain, composite score >= threshold).
+    # See app/services/match_rules.py and evaluate_dedup.py for the rule and its measured accuracy.
     
     threshold = settings.FUZZY_MATCH_THRESHOLD
     visited = set()
@@ -222,8 +219,6 @@ def run_cleaning_pipeline(db: Session) -> dict:
         cluster = [lead]
         visited.add(i)
 
-        str1 = f"{lead['first_name'] or ''} {lead['last_name'] or ''} | {lead['company'] or ''} | {lead['email'] or ''}".lower()
-
         for j in range(i + 1, len(processed_records)):
             if j in visited:
                 continue
@@ -232,12 +227,17 @@ def run_cleaning_pipeline(db: Session) -> dict:
             if other["is_junk"]:
                 continue
 
-            str2 = f"{other['first_name'] or ''} {other['last_name'] or ''} | {other['company'] or ''} | {other['email'] or ''}".lower()
+            if lead["email"] and lead["email"] == other["email"]:
+                matched, similarity, reason = True, 100.0, f"Exact match on email address ({other['email']})"
+            elif lead["phone"] and lead["phone"] == other["phone"]:
+                matched, similarity, reason = True, 100.0, f"Exact match on phone number ({other['phone']})"
+            else:
+                matched, similarity, reason = fuzzy_match(lead, other, threshold)
+                reason = f"Fuzzy match: {reason}"
 
-            similarity = fuzz.token_sort_ratio(str1, str2)
-
-            if similarity >= threshold:
-                other["similarity_with_winner"] = round(similarity, 1)
+            if matched:
+                other["similarity_with_winner"] = similarity
+                other["match_reason"] = f"{reason}; matched against raw lead #{lead['raw_id']}"
                 cluster.append(other)
                 visited.add(j)
 
@@ -298,15 +298,18 @@ def run_cleaning_pipeline(db: Session) -> dict:
 
         # Archive secondary duplicates into audit log
         for dup in cluster[1:]:
-            sim_score = dup.get("similarity_with_winner", threshold)
+            sim_score = dup.get("similarity_with_winner", 100.0)
             log_entry = MergedLeadLog(
                 winner_lead_id=clean_lead.id,
+                winner_raw_lead_id=winner["raw_id"],
                 archived_raw_lead_id=dup["raw_id"],
+                id_type="raw_lead_id",
                 archived_lead_name=f"{dup['first_name'] or ''} {dup['last_name'] or ''}".strip(),
                 archived_company=dup["company"],
                 archived_email=dup["email"],
                 similarity_score=sim_score,
-                merge_reason=f"Fuzzy match similarity ({sim_score}%) exceeded threshold ({threshold}%). Merged into complete record ID {clean_lead.id}."
+                merge_reason=f"{dup.get('match_reason', 'Matched')}. Raw lead #{dup['raw_id']} archived; "
+                             f"raw lead #{winner['raw_id']} kept as clean lead #{clean_lead.id}."
             )
             merged_logs.append(log_entry)
 

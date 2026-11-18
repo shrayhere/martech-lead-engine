@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="small muted mb"><a href="/contacts">Contacts</a> / <span id="crumb">{{ title }}</span></div>
+<div id="detail">{{ '' }}<div class="loading"><div class="spinner"></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>window.CONTACT_ID = {{ contact_id }};</script>
+<script src="{{ url_for('static', filename='js/pages/contact_detail.js') }}"></script>
+{% endblock %}

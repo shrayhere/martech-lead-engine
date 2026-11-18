@@ -84,7 +84,8 @@ async def run_pipeline(
                 filename=filename,
                 run_id=current_run_id,
                 mapping_override=parsed_override,
-                scoring_mode=scoring_mode
+                scoring_mode=scoring_mode,
+                db=db
             )
             return result
         except ValueError as ve:

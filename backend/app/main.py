@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
+from app.database import engine, Base, ensure_sqlite_columns
 from app.routes import ingestion, cleaning, scoring, assignment, pipeline, band_leads
 
 # Create database tables automatically
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_columns(engine)
 
 app = FastAPI(
     title="MarTech Data Quality & Lead Scoring Engine API",
@@ -12,10 +13,17 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration to allow local Vite frontend and production hosts
+# CORS: the Vercel frontend normally proxies /api through vercel.json (same origin), but direct calls
+# from the deployed site and local dev are allowed explicitly. Configure with environment variables:
+#   CORS_ORIGINS="https://my-app.vercel.app,https://www.example.com"
+#   CORS_ORIGIN_REGEX="https://martech-lead-engine(-[a-z0-9-]+)?\.vercel\.app"  (production + preview deploys)
+import os  # noqa: E402
+
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", _default_origins).split(",") if o.strip()],
+    allow_origin_regex=os.getenv("CORS_ORIGIN_REGEX", r"https://martech-lead-engine(-[a-z0-9-]+)?\.vercel\.app"),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

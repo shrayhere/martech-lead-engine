@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Settings</h1><p>Lead scoring rules, your profile and workspace information.</p></div></div>
+<div class="grid grid-main">
+  <div class="card">
+    <div class="card-head"><div><h3>Lead scoring rules</h3><p>Points per activity. Saving recalculates every lead score immediately.</p></div>
+      <div class="page-actions"><button class="btn sm" id="reset-rules">Reset to defaults</button><button class="btn primary sm" id="save-rules">Save rules</button></div></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Activity</th><th>Key</th><th style="width:140px">Points</th><th>Default</th></tr></thead><tbody id="rules"></tbody></table></div>
+    <div class="card-body small muted" id="bands"></div>
+  </div>
+  <div>
+    <div class="card"><div class="card-head"><h3>Profile</h3></div><div class="card-body">
+      <form id="profile-form" novalidate><div class="form-error hidden"></div>
+        <div class="field mb"><label for="p-name">Full name</label><input class="input" id="p-name" name="full_name" value="{{ current_user.full_name }}"></div>
+        <div class="field mb"><label>Email</label><input class="input" value="{{ current_user.email }}" disabled></div>
+        <div class="field mb"><label for="p-cur">Current password</label><input class="input" id="p-cur" type="password" name="current_password" autocomplete="current-password"><span class="hint">Only needed to change your password.</span></div>
+        <div class="field mb"><label for="p-new">New password</label><input class="input" id="p-new" type="password" name="new_password" autocomplete="new-password"></div>
+        <button class="btn primary" type="submit">Save profile</button>
+      </form></div></div>
+    <div class="card mt"><div class="card-head"><h3>Workspace</h3></div><div class="card-body"><dl class="kv">
+      <dt>Role</dt><dd>{{ current_user.role|capitalize }}</dd>
+      <dt>Member since</dt><dd>{{ current_user.created_at.strftime('%d %b %Y') }}</dd>
+      <dt>Database</dt><dd>{{ db_backend }}</dd>
+      <dt>Upload limit</dt><dd>{{ config.MAX_UPLOAD_MB }} MB / {{ '{:,}'.format(config.MAX_IMPORT_ROWS) }} rows</dd>
+      <dt>Phone default</dt><dd>{{ config.DEFAULT_COUNTRY_CODE }} for 10-digit numbers</dd>
+      <dt>Data access</dt><dd>Records are private to your account.</dd></dl></div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const { get, api, esc, $, $$, toast, confirmDialog, formData, showErrors, loadingHTML, errorHTML } = App;
+  let rules = [];
+  async function load() {
+    $("#rules").innerHTML = `<tr><td colspan="4">${loadingHTML}</td></tr>`;
+    try {
+      const r = await get("/api/settings/scoring-rules"); rules = r.rules;
+      $("#rules").innerHTML = rules.map((x) => `<tr><td><strong>${esc(x.label)}</strong></td><td><code>${esc(x.activity_type)}</code></td>
+        <td><div class="field"><input class="input sm" type="number" min="-100" max="100" step="1" data-type="${x.activity_type}" value="${x.points}" aria-label="Points for ${esc(x.label)}"></div></td>
+        <td class="muted">${x.default_points > 0 ? "+" : ""}${x.default_points}</td></tr>`).join("");
+      $("#bands").innerHTML = `Categories: <span class="badge hot">Hot ${r.bands.hot[0]}–${r.bands.hot[1]}</span> <span class="badge warm">Warm ${r.bands.warm[0]}–${r.bands.warm[1]}</span>
+        <span class="badge cold">Cold ${r.bands.cold[0]}–${r.bands.cold[1]}</span><br><br>Scores are bounded between 0 and 100. The “No activity for 30 days” value is applied once when a lead has had no engagement for 30 days
+        (or a “no recent engagement” activity was logged after the last engagement). Contacts without a valid email or phone are excluded from qualification.`;
+    } catch (e) { $("#rules").innerHTML = `<tr><td colspan="4">${errorHTML(e.message)}</td></tr>`; }
+  }
+  $("#save-rules").onclick = async () => {
+    const payload = $$("#rules input[data-type]").map((i) => ({ activity_type: i.dataset.type, points: i.value }));
+    $$("#rules .field").forEach((f) => { f.classList.remove("has-error"); f.querySelector(".err")?.remove(); });
+    try { const r = await api("PUT", "/api/settings/scoring-rules", { rules: payload }); toast(r.message); load(); }
+    catch (e) {
+      toast(e.message, "error");
+      Object.entries(e.details || {}).forEach(([k, m]) => { const f = $(`#rules input[data-type="${k}"]`)?.closest(".field"); if (f) { f.classList.add("has-error"); f.insertAdjacentHTML("beforeend", `<span class="err">${esc(m)}</span>`); } });
+    }
+  };
+  $("#reset-rules").onclick = async () => {
+    if (!(await confirmDialog("Reset all scoring rules to their default points and recalculate every lead score?", { confirmLabel: "Reset rules", danger: false }))) return;
+    try { const r = await api("PUT", "/api/settings/scoring-rules", { reset: true }); toast(r.message); load(); } catch (e) { toast(e.message, "error"); }
+  };
+  $("#profile-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); const form = e.target;
+    form.querySelector(".form-error").classList.add("hidden");
+    $$(".field", form).forEach((f) => { f.classList.remove("has-error"); f.querySelector(".err")?.remove(); });
+    try { await api("PUT", "/api/auth/profile", formData(form)); toast("Profile saved."); form.current_password.value = ""; form.new_password.value = ""; }
+    catch (err) { showErrors(form, err); }
+  });
+  load();
+})();
+</script>
+{% endblock %}

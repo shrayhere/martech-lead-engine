@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="small muted mb"><a href="/companies">Companies</a> / <span id="crumb">{{ title }}</span></div>
+<div id="detail"><div class="loading"><div class="spinner"></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>window.COMPANY_ID = {{ company_id }};</script>
+<script>
+(function () {
+  const { get, api, esc, $, $$, fmtDate, fmtRelative, fmtMoney, initials, categoryBadge, scoreBar, stageLabel, toast, confirmDialog,
+    companyForm, contactForm, errorHTML, emptyHTML, CAT_COLORS } = App;
+  const id = window.COMPANY_ID, root = $("#detail");
+  let data;
+  function render() {
+    const c = data.company, d = c.distribution, total = d.hot + d.warm + d.cold;
+    document.title = `${c.company_name} · MarTech CRM`;
+    $("#crumb").textContent = c.company_name;
+    const pct = (n) => (total ? Math.round(n / total * 100) : 0);
+    root.innerHTML = `
+      <div class="card"><div class="profile-head">
+        <span class="avatar lg company">${esc(initials(c.company_name))}</span>
+        <div style="flex:1;min-width:0"><h1>${esc(c.company_name)}</h1>
+          <div class="meta">${c.industry ? `<span>🏷 ${esc(c.industry)}</span>` : ""}
+            ${c.website ? `<span>🌐 <a href="${esc(c.website)}" target="_blank" rel="noopener noreferrer">${esc(c.website.replace("https://", ""))}</a></span>` : ""}
+            ${c.city || c.country ? `<span>📍 ${esc([c.city, c.country].filter(Boolean).join(", "))}</span>` : ""}</div></div>
+        <div class="page-actions"><button class="btn primary" id="add-contact">+ Add contact</button>
+          <button class="btn" id="edit">Edit</button><button class="btn danger" id="delete">Delete</button></div></div></div>
+      <div class="grid grid-4 mt">
+        <div class="card stat"><div class="label">Associated contacts</div><div class="value">${c.contact_count}</div><div class="sub">${c.lead_count} active leads</div></div>
+        <div class="card stat"><div class="label">Hot leads</div><div class="value" style="color:${CAT_COLORS.hot}">${d.hot}</div><div class="sub">${pct(d.hot)}% of leads</div></div>
+        <div class="card stat"><div class="label">Warm leads</div><div class="value" style="color:${CAT_COLORS.warm}">${d.warm}</div><div class="sub">${pct(d.warm)}% of leads</div></div>
+        <div class="card stat"><div class="label">Cold leads</div><div class="value" style="color:${CAT_COLORS.cold}">${d.cold}</div><div class="sub">${pct(d.cold)}% of leads</div></div>
+      </div>
+      <div class="grid grid-main mt">
+        <div class="card"><div class="card-head"><div><h3>Contacts at ${esc(c.company_name)}</h3><p>Linked through company_id (one company → many contacts)</p></div>
+          <a class="btn sm" href="/contacts?company_id=${c.company_id}">Open in Contacts</a></div>
+          <div class="card-body flush">${data.contacts.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Title</th><th>Category</th><th>Score</th><th class="hide-sm">Stage</th><th class="hide-sm">Last activity</th></tr></thead><tbody>
+            ${data.contacts.map((p) => `<tr><td><div class="cell-main"><span class="avatar sm">${esc(initials(p.full_name))}</span><div><a class="t" href="/contacts/${p.contact_id}">${esc(p.full_name)}</a><div class="s">${esc(p.email || p.phone || "")}</div></div></div></td>
+              <td>${esc(p.job_title || "—")}</td><td>${categoryBadge(p)}</td><td>${scoreBar(p.lead_score, p.lead_category)}</td>
+              <td class="hide-sm">${stageLabel(p.lifecycle_stage)}</td><td class="hide-sm nowrap">${p.last_activity_at ? fmtRelative(p.last_activity_at) : "—"}</td></tr>`).join("")}
+            </tbody></table></div>` : emptyHTML("No contacts yet", "Add a contact or associate existing contacts with this company.", `<button class="btn primary sm" id="add-contact-2">Add contact</button>`)}</div></div>
+        <div class="card"><div class="card-head"><h3>Company details</h3></div><div class="card-body"><dl class="kv">
+          <dt>Industry</dt><dd>${esc(c.industry || "—")}</dd><dt>Website</dt><dd>${esc(c.website || "—")}</dd>
+          <dt>Email</dt><dd>${esc(c.company_email || "—")}</dd><dt>Phone</dt><dd>${esc(c.phone || "—")}</dd>
+          <dt>Address</dt><dd>${esc(c.address || "—")}</dd><dt>City</dt><dd>${esc(c.city || "—")}</dd><dt>Country</dt><dd>${esc(c.country || "—")}</dd>
+          <dt>Employees</dt><dd>${c.employee_count?.toLocaleString() ?? "—"}</dd><dt>Annual revenue</dt><dd>${fmtMoney(c.annual_revenue)}</dd>
+          <dt>Created</dt><dd>${fmtDate(c.created_at)}</dd></dl>
+          ${c.description ? `<p style="margin:14px 0 0;color:var(--text-2)">${esc(c.description)}</p>` : ""}</div></div>
+      </div>`;
+    const add = () => contactForm(null, { presetCompany: { company_id: c.company_id, company_name: c.company_name }, onSaved: load });
+    $("#add-contact").onclick = add; $("#add-contact-2")?.addEventListener("click", add);
+    $("#edit").onclick = () => companyForm(c, { onSaved: load });
+    $("#delete").onclick = async () => {
+      if (!(await confirmDialog(`Delete <strong>${esc(c.company_name)}</strong>?${c.contact_count ? ` Its ${c.contact_count} contact(s) will be kept without a company.` : ""} This cannot be undone.`, { confirmLabel: "Delete company" }))) return;
+      try { await api("DELETE", `/api/companies/${id}`); toast("Company deleted."); location.href = "/companies"; } catch (e) { toast(e.message, "error"); }
+    };
+  }
+  async function load() {
+    try { data = await get(`/api/companies/${id}`); render(); } catch (e) { root.innerHTML = `<div class="card">${errorHTML(e.message)}</div>`; }
+  }
+  load();
+})();
+</script>
+{% endblock %}

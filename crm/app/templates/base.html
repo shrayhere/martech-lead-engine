@@ -1,0 +1,74 @@
+{% from "_icons.html" import icon %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}{{ title or 'MarTech' }}{% endblock %} · MarTech CRM</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">M</div>MarTech</div>
+    <nav class="nav">
+      {% for key, label, href in NAV %}
+        <a href="{{ href }}" class="{{ 'active' if active == key }}" data-nav="{{ key }}">{{ icon(key) }}<span>{{ label }}</span>
+          {% if key == 'data' %}<span class="badge-count hidden" id="nav-dup-count"></span>{% endif %}</a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-foot">Signed in as<br><strong style="color:#dbe6fe">{{ current_user.email }}</strong></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Open navigation">{{ icon('menu') }}</button>
+      <div class="search" id="global-search">
+        {{ icon('search') }}
+        <input type="search" id="global-search-input" placeholder="Search contacts, companies, emails, phones…" autocomplete="off" aria-label="Global search">
+        <kbd>/</kbd>
+        <div class="dropdown search-results hidden" id="global-search-results"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="wrap-rel">
+          <button class="btn primary sm" id="quick-add-btn">{{ icon('plus') }}<span class="hide-sm">Quick add</span></button>
+          <div class="dropdown hidden" id="quick-add-menu">
+            <button class="item" data-quick="contact">{{ icon('contacts') }} New contact</button>
+            <button class="item" data-quick="company">{{ icon('companies') }} New company</button>
+            <button class="item" data-quick="activity">{{ icon('activity') }} Log activity</button>
+            <div class="sep"></div>
+            <a class="item" href="/imports">{{ icon('imports') }} Import CSV</a>
+          </div>
+        </div>
+        <div class="wrap-rel">
+          <button class="icon-btn" id="notif-btn" aria-label="Notifications">{{ icon('bell') }}<span class="dot hidden" id="notif-dot"></span></button>
+          <div class="dropdown notif-panel hidden" id="notif-panel"></div>
+        </div>
+        <div class="wrap-rel">
+          <button class="profile-btn" id="profile-btn">
+            <span class="avatar sm">{{ current_user.full_name[:1]|upper }}{{ (current_user.full_name.split(' ')[-1][:1]|upper) if ' ' in current_user.full_name else '' }}</span>
+            <span class="name">{{ current_user.full_name }}</span>
+          </button>
+          <div class="dropdown hidden" id="profile-menu">
+            <div style="padding:8px 10px"><strong>{{ current_user.full_name }}</strong><div class="muted small">{{ current_user.email }} · {{ current_user.role }}</div></div>
+            <div class="sep"></div>
+            <a class="item" href="/settings">{{ icon('user') }} Profile & settings</a>
+            <button class="item" id="logout-btn">{{ icon('logout') }} Log out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+<script>window.MARTECH = { user: {{ current_user.to_dict()|tojson }}, lifecycle: {{ LIFECYCLE_STAGES|list|tojson }} };</script>
+<script src="{{ url_for('static', filename='js/vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

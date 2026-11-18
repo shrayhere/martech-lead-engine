@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Reports & Analytics{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Reports &amp; Analytics</h1><p>Deeper analysis of leads, sources, engagement and imports, plus CSV exports.</p></div>
+  <div class="page-actions">
+    <div class="segmented" id="range-picker">
+      <button data-range="all" class="active">All time</button><button data-range="today">Today</button>
+      <button data-range="7d">7 days</button><button data-range="30d">30 days</button><button data-range="90d">90 days</button><button data-range="custom">Custom</button>
+    </div>
+  </div>
+</div>
+<div class="card hidden mb" id="custom-range" style="padding:12px 14px">
+  <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div class="field"><label for="range-start">From</label><input class="input sm" type="date" id="range-start"></div>
+    <div class="field"><label for="range-end">To</label><input class="input sm" type="date" id="range-end"></div>
+    <button class="btn primary sm" id="apply-range">Apply range</button>
+  </div>
+</div>
+<div class="grid grid-4" id="kpis"></div>
+<div class="grid grid-2 mt">
+  <div class="card"><div class="card-head"><div><h3>Leads over time</h3><p>By creation date and category</p></div></div><div class="card-body"><div class="chart-box"><canvas id="r-time"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><div><h3>Lead conversion funnel</h3><p>Contacts that reached each lifecycle stage</p></div></div><div class="card-body"><div class="chart-box"><canvas id="r-funnel"></canvas></div></div></div>
+</div>
+<div class="grid grid-3 mt">
+  <div class="card"><div class="card-head"><h3>Category distribution</h3></div><div class="card-body"><div class="chart-box sm"><canvas id="r-dist"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><h3>Lead sources</h3></div><div class="card-body"><div class="chart-box sm"><canvas id="r-sources"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><h3>Contacts by company</h3></div><div class="card-body"><div class="chart-box sm"><canvas id="r-company"></canvas></div></div></div>
+</div>
+<div class="grid grid-2 mt">
+  <div class="card"><div class="card-head"><div><h3>Source performance</h3><p>All leads, grouped by lead source</p></div></div><div class="card-body flush" id="source-table"></div></div>
+  <div class="card"><div class="card-head"><div><h3>Engagement by activity type</h3><p>Activities logged in the selected period</p></div></div><div class="card-body flush" id="activity-table"></div></div>
+</div>
+<div class="grid grid-2 mt">
+  <div class="card"><div class="card-head"><div><h3>Industries</h3><p>Contacts and average score by company industry</p></div></div><div class="card-body flush" id="industry-table"></div></div>
+  <div class="card"><div class="card-head"><div><h3>Import activity history</h3><p>Rows inserted/updated by completed imports</p></div></div><div class="card-body"><div class="chart-box sm"><canvas id="r-imports"></canvas></div></div></div>
+</div>
+<div class="card mt"><div class="card-head"><div><h3>Exports</h3><p>Download processed data as CSV</p></div></div>
+  <div class="card-body page-actions">
+    <a class="btn" href="/api/contacts/export">⬇ All contacts</a>
+    <a class="btn" href="/api/contacts/export?leads_only=1">⬇ All leads</a>
+    <a class="btn" href="/api/contacts/export?category=hot&leads_only=1">⬇ Hot leads</a>
+    <a class="btn" href="/api/companies/export">⬇ Companies</a>
+    <a class="btn" href="/api/reports/activities.csv">⬇ Activities</a>
+    <a class="btn" href="/api/reports/imports.csv">⬇ Import history</a>
+    <a class="btn" href="/api/duplicates/export">⬇ Duplicates</a>
+  </div></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/analytics_common.js') }}"></script>
+<script>
+(function () {
+  const { get, qs, esc, $, fmtNum, label, loadingHTML, errorHTML, emptyHTML } = App;
+  const tbl = (head, rows) => rows.length ? `<table class="table"><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : emptyHTML("No data", "Nothing recorded for this period.");
+  async function load(range) {
+    $("#kpis").innerHTML = `<div class="card" style="grid-column:1/-1">${loadingHTML}</div>`;
+    try {
+      const r = await get("/api/reports/summary" + qs(range)), s = r.stats, c = r.charts;
+      const conv = s.total_contacts ? Math.round(((c.lifecycle_stages.customer || 0) + (c.lifecycle_stages.evangelist || 0)) / s.total_contacts * 100) : 0;
+      $("#kpis").innerHTML = [
+        ["Contacts", s.total_contacts, `${s.total_companies} companies`], ["Leads", s.total_leads, `${s.hot_leads} hot · ${s.warm_leads} warm · ${s.cold_leads} cold`],
+        ["Average lead score", s.average_lead_score, "Across contacts in period"], ["Customer conversion", conv + "%", "Contacts now customers/evangelists"],
+      ].map(([l, v, sub]) => `<div class="card stat"><div class="label">${l}</div><div class="value">${typeof v === "number" ? fmtNum(v) : v}</div><div class="sub">${sub}</div></div>`).join("");
+      Analytics.leadsOverTime("r-time", c); Analytics.funnel("r-funnel", c.funnel); Analytics.distribution("r-dist", c.lead_distribution);
+      Analytics.sources("r-sources", c.lead_sources); Analytics.byCompany("r-company", c.contacts_by_company); Analytics.imports("r-imports", c);
+      $("#source-table").innerHTML = tbl(["Source", "Leads", "Hot", "Avg. score"], r.leads.by_source.sort((a, b) => b.leads - a.leads).map((x) =>
+        `<tr><td><a href="/contacts?leads_only=1&lead_source=${encodeURIComponent(x.source)}">${esc(x.source)}</a></td><td>${x.leads}</td><td>${x.hot}</td><td>${x.average_score}</td></tr>`));
+      $("#activity-table").innerHTML = tbl(["Activity", "Count", "Points awarded"], r.activities.map((a) =>
+        `<tr><td>${esc(label(a.activity_type))}</td><td>${a.count}</td><td class="${a.points < 0 ? "neg" : "pos"}">${a.points > 0 ? "+" : ""}${a.points}</td></tr>`));
+      $("#industry-table").innerHTML = tbl(["Industry", "Contacts", "Avg. score"], r.industries.map((i) =>
+        `<tr><td>${esc(i.industry)}</td><td>${i.contacts}</td><td>${i.average_score}</td></tr>`));
+    } catch (e) { $("#kpis").innerHTML = `<div class="card" style="grid-column:1/-1">${errorHTML(e.message)}</div>`; }
+  }
+  Analytics.rangePicker(load);
+  load({ range: "all" });
+})();
+</script>
+{% endblock %}

@@ -293,7 +293,8 @@ export default function DataQualityPage({ onProceedToScoring }) {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                   <tr>
-                    <th className="p-3">Winner Master ID</th>
+                    <th className="p-3">Kept Record</th>
+                    <th className="p-3">Archived Record</th>
                     <th className="p-3">Archived Lead Name</th>
                     <th className="p-3">Archived Company</th>
                     <th className="p-3">Archived Email</th>
@@ -304,7 +305,12 @@ export default function DataQualityPage({ onProceedToScoring }) {
                 <tbody className="divide-y divide-slate-800/60 bg-slate-950/40">
                   {mergedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-3 font-mono font-bold text-indigo-400"># {log.winner_lead_id}</td>
+                      <td className="p-3 font-mono font-bold text-indigo-400" title={log.id_type === 'csv_row' ? 'Row number in the uploaded CSV' : 'raw_leads.id'}>
+                        {log.id_type === 'csv_row' ? 'Row' : 'Raw'} #{log.winner_raw_lead_id ?? log.winner_lead_id}
+                      </td>
+                      <td className="p-3 font-mono text-slate-300" title={log.id_type === 'csv_row' ? 'Row number in the uploaded CSV' : 'raw_leads.id'}>
+                        {log.id_type === 'csv_row' ? 'Row' : 'Raw'} #{log.archived_raw_lead_id}
+                      </td>
                       <td className="p-3 font-medium text-slate-200">{log.archived_lead_name || '-'}</td>
                       <td className="p-3 text-slate-300">{log.archived_company || '-'}</td>
                       <td className="p-3 text-slate-400 font-mono">{log.archived_email || '-'}</td>

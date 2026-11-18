@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Good to see you, {{ current_user.full_name.split(' ')[0] }}</h1>
+    <p>Here's how your pipeline is performing. All numbers are calculated live from your records.</p></div>
+  <div class="page-actions">
+    <div class="segmented" id="range-picker">
+      <button data-range="all" class="active">All time</button><button data-range="today">Today</button>
+      <button data-range="7d">7 days</button><button data-range="30d">30 days</button><button data-range="90d">90 days</button>
+      <button data-range="custom">Custom</button>
+    </div>
+  </div>
+</div>
+<div class="card hidden mb" id="custom-range" style="padding:12px 14px">
+  <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div class="field"><label for="range-start">From</label><input class="input sm" type="date" id="range-start"></div>
+    <div class="field"><label for="range-end">To</label><input class="input sm" type="date" id="range-end"></div>
+    <button class="btn primary sm" id="apply-range">Apply range</button>
+  </div>
+</div>
+
+<div class="grid grid-4" id="stats"></div>
+
+<div class="grid grid-main mt">
+  <div class="card"><div class="card-head"><div><h3>Leads generated over time</h3><p id="lot-sub">New leads by creation date</p></div></div>
+    <div class="card-body"><div class="chart-box"><canvas id="chart-leads-time"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><div><h3>Lead distribution</h3><p>Hot · Warm · Cold</p></div><a href="/leads" class="btn sm">Pipeline →</a></div>
+    <div class="card-body"><div class="chart-box"><canvas id="chart-dist"></canvas></div></div></div>
+</div>
+
+<div class="grid grid-3 mt">
+  <div class="card"><div class="card-head"><div><h3>Contacts by company</h3><p>Top 10 companies</p></div></div>
+    <div class="card-body"><div class="chart-box sm"><canvas id="chart-company"></canvas></div><p class="small muted" id="no-company-note" style="margin:8px 0 0"></p></div></div>
+  <div class="card"><div class="card-head"><div><h3>Lead sources</h3><p>Where contacts come from</p></div></div>
+    <div class="card-body"><div class="chart-box sm"><canvas id="chart-sources"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><div><h3>Lifecycle funnel</h3><p>Contacts that reached each stage</p></div></div>
+    <div class="card-body"><div class="chart-box sm"><canvas id="chart-funnel"></canvas></div></div></div>
+</div>
+
+<div class="grid grid-main mt">
+  <div class="card"><div class="card-head"><div><h3>Import activity</h3><p>Completed CSV imports: records inserted & updated</p></div><a class="btn sm" href="/imports">Import data</a></div>
+    <div class="card-body"><div class="chart-box sm"><canvas id="chart-imports"></canvas></div></div></div>
+  <div class="card"><div class="card-head"><div><h3>Top leads</h3><p>Highest scores right now</p></div></div>
+    <div class="card-body flush" id="top-leads">{{ '' }}</div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/pages/analytics_common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/overview.js') }}"></script>{% endblock %}

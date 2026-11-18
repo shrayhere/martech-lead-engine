@@ -3,9 +3,20 @@ import random
 from datetime import datetime, timedelta
 
 def generate_sample_leads_csv(num_records: int = 200) -> str:
+    """CSV text of the synthetic dataset (ground-truth ids are not included)."""
+    leads = generate_sample_leads(num_records)
+    df = pd.DataFrame([{k: v for k, v in l.items() if not k.startswith("_")} for l in leads])
+    return df.to_csv(index=False)
+
+
+def generate_sample_leads(num_records: int = 200) -> list:
     """
+    Returns the synthetic leads as dicts. Each record carries `_person_id` (ground truth: records with
+    the same id are the same person) so deduplication accuracy can be measured (see evaluate_dedup.py).
+
     Generates a realistic synthetic B2B leads dataset of 200 rows with intentional data quality issues:
-    - ~15% duplicate/near-duplicate entries with minor typos in names or company names.
+    - 170 unique people + exactly 20 planted near-duplicates (name typo, company variant,
+      modified email, lower-cased name) + 10 junk rows.
     - ~5% obvious junk rows (missing phone AND email, placeholder company like 'test', 'n/a', 'asdf').
     - Inconsistent state naming ('California', 'CA', 'calif', 'Texas', 'TX', 'New York', 'ny').
     - Inconsistent phone formatting ('(555) 234-5678', '+15552345678', '555.234.5678').
@@ -54,11 +65,19 @@ def generate_sample_leads_csv(num_records: int = 200) -> str:
 
     base_records = []
     
-    # 1. Generate core 170 clean/semi-messy records
+    # 1. Generate core 170 clean/semi-messy records — each a distinct person.
+    # (Without the uniqueness check, the small name pools produce accidental "same name, same company,
+    #  same email" pairs, which are indistinguishable from real duplicates and make the 20-duplicate
+    #  ground truth untrue.)
+    used_people = set()
     for i in range(170):
-        fn = random.choice(first_names)
-        ln = random.choice(last_names)
-        comp = random.choice(companies)
+        while True:
+            fn = random.choice(first_names)
+            ln = random.choice(last_names)
+            comp = random.choice(companies)
+            if (fn, ln, comp) not in used_people:
+                used_people.add((fn, ln, comp))
+                break
         
         # Occasional mixed casing for company
         if random.random() < 0.2:
@@ -89,6 +108,7 @@ def generate_sample_leads_csv(num_records: int = 200) -> str:
         act_date = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
         
         base_records.append({
+            "_person_id": i,
             "first_name": fn,
             "last_name": ln,
             "email": email,
@@ -124,7 +144,7 @@ def generate_sample_leads_csv(num_records: int = 200) -> str:
             dup["last_name"] = dup["last_name"].lower()
 
         dup["engagement_score"] = random.randint(5, 95)
-        duplicates.append(dup)
+        duplicates.append(dup)  # keeps the target's _person_id
 
     # 3. Add 10 obvious Junk records
     junk_rows = [
@@ -140,8 +160,9 @@ def generate_sample_leads_csv(num_records: int = 200) -> str:
         {"first_name": "Demo", "last_name": "Lead", "email": "demo@demo.com", "company": "testing 123", "job_title": "Demo", "phone": None, "state": "TX", "industry": "Software", "company_size": 10, "engagement_score": 3, "last_activity_date": "2026-06-10"}
     ]
 
+    for k, junk in enumerate(junk_rows):
+        junk["_person_id"] = 1000 + k
+
     all_leads = base_records + duplicates + junk_rows
     random.shuffle(all_leads)
-    
-    df = pd.DataFrame(all_leads)
-    return df.to_csv(index=False)
+    return all_leads

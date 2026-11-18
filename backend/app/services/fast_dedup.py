@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import List, Dict, Any, Tuple
-from rapidfuzz import fuzz
 from app.config import settings
+from app.services.match_rules import composite_string, fuzzy_match
 
 GENERIC_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com",
@@ -11,20 +11,30 @@ GENERIC_DOMAINS = {
 def get_blocking_keys(lead: Dict[str, Any]) -> List[str]:
     """
     Computes blocking keys to partition candidates into small buckets for high-speed fuzzy comparison.
+    Combines domain/company prefix with first-name initial to avoid oversized buckets.
     """
     keys = []
     email = lead.get("email") or ""
+    fn = (lead.get("first_name") or lead.get("full_name") or "").strip().lower()
+    fn_char = fn[0] if fn else ""
+
     if "@" in email:
         domain = email.split("@")[-1].lower().strip()
         if domain and domain not in GENERIC_DOMAINS:
-            keys.append(f"dom:{domain}")
+            if fn_char:
+                keys.append(f"df:{domain}:{fn_char}")
+            else:
+                keys.append(f"dom:{domain}")
 
     comp = (lead.get("company") or "").lower().strip()
     if comp:
-        # First 3 alphanumeric chars of company
-        comp_prefix = "".join(c for c in comp if c.isalnum())[:3]
+        # First 4 alphanumeric chars of company
+        comp_prefix = "".join(c for c in comp if c.isalnum())[:4]
         if comp_prefix:
-            keys.append(f"comp:{comp_prefix}")
+            if fn_char:
+                keys.append(f"cf:{comp_prefix}:{fn_char}")
+            else:
+                keys.append(f"comp:{comp_prefix}")
 
     # Fallback bucket if no domain or company
     if not keys:
@@ -86,7 +96,8 @@ def fast_deduplicate_leads(
     # PASS 1: Exact Hash Lookups (Email & Phone)
     email_to_idx: Dict[str, int] = {}
     phone_to_idx: Dict[str, int] = {}
-    exact_merge_reasons: Dict[Tuple[int, int], str] = {}
+    # Every edge that joined two records, keyed by (min_idx, max_idx) list positions -> (score, reason)
+    edges: Dict[Tuple[int, int], Tuple[float, str]] = {}
 
     for idx, lead in enumerate(clean_candidates):
         em = lead.get("email")
@@ -94,7 +105,7 @@ def fast_deduplicate_leads(
             if em in email_to_idx:
                 prev_idx = email_to_idx[em]
                 union(prev_idx, idx)
-                exact_merge_reasons[(prev_idx, idx)] = f"Exact match on email address ({em})"
+                edges[(prev_idx, idx)] = (100.0, f"Exact match on email address ({em})")
             else:
                 email_to_idx[em] = idx
 
@@ -103,47 +114,40 @@ def fast_deduplicate_leads(
             if ph in phone_to_idx:
                 prev_idx = phone_to_idx[ph]
                 union(prev_idx, idx)
-                exact_merge_reasons[(prev_idx, idx)] = f"Exact match on E.164 phone number ({ph})"
+                edges.setdefault((prev_idx, idx), (100.0, f"Exact match on E.164 phone number ({ph})"))
             else:
                 phone_to_idx[ph] = idx
 
-    # PASS 2: Blocking Buckets for RapidFuzz 85% Composite Matching
+    # PASS 2: Guarded fuzzy matching inside blocking buckets.
+    # A fuzzy match needs the same last name, a near-identical first name and the same company/domain
+    # (see match_rules.py) before the composite similarity threshold is even considered.
     bucket_map: Dict[str, List[int]] = defaultdict(list)
     for idx, lead in enumerate(clean_candidates):
         for b_key in get_blocking_keys(lead):
             bucket_map[b_key].append(idx)
 
-    fuzzy_merge_info: Dict[Tuple[int, int], Tuple[float, str]] = {}
-
-    # Precompute composite string per lead
-    composite_strings = [
-        f"{l.get('first_name') or ''} {l.get('last_name') or ''} | {l.get('company') or ''} | {l.get('email') or ''}".lower()
-        for l in clean_candidates
-    ]
+    composite_strings = [composite_string(l) for l in clean_candidates]
 
     for b_key, indices in bucket_map.items():
         n_in_bucket = len(indices)
         if n_in_bucket <= 1:
             continue
 
-        for i_pos in range(n_in_bucket):
-            i_idx = indices[i_pos]
-            root_i = find(i_idx)
-            str_i = composite_strings[i_idx]
+        # Cap bucket comparison at 300 to guard against catastrophic O(N^2) outliers
+        target_indices = indices[:300] if n_in_bucket > 300 else indices
+        n_eval = len(target_indices)
 
-            for j_pos in range(i_pos + 1, n_in_bucket):
-                j_idx = indices[j_pos]
-                if find(j_idx) == root_i:
+        for i_pos in range(n_eval):
+            i_idx = target_indices[i_pos]
+            for j_pos in range(i_pos + 1, n_eval):
+                j_idx = target_indices[j_pos]
+                if find(j_idx) == find(i_idx):
                     continue  # already in same cluster
-
-                str_j = composite_strings[j_idx]
-                sim = fuzz.token_sort_ratio(str_i, str_j)
-                if sim >= threshold:
+                ok, sim, reason = fuzzy_match(clean_candidates[i_idx], clean_candidates[j_idx], threshold,
+                                              composite_strings[i_idx], composite_strings[j_idx])
+                if ok:
                     union(i_idx, j_idx)
-                    fuzzy_merge_info[(i_idx, j_idx)] = (
-                        round(float(sim), 1),
-                        f"Fuzzy token_sort_ratio match ({sim:.1f}% >= {threshold}%) inside bucket '{b_key}'"
-                    )
+                    edges[(min(i_idx, j_idx), max(i_idx, j_idx))] = (sim, f"Fuzzy match: {reason}")
 
     # Group records by root parent
     clusters: Dict[int, List[int]] = defaultdict(list)
@@ -161,40 +165,38 @@ def fast_deduplicate_leads(
             winner_leads.append(lead)
         else:
             # Sort cluster members: highest completeness score wins
-            member_leads = [clean_candidates[idx] for idx in member_indices]
-            member_leads.sort(key=score_lead_completeness, reverse=True)
-            winner = member_leads[0]
+            member_indices = sorted(member_indices, key=lambda i: score_lead_completeness(clean_candidates[i]),
+                                    reverse=True)
+            winner_idx = member_indices[0]
+            winner = clean_candidates[winner_idx]
             cluster_id = f"CLUSTER-{run_id[:8]}-{winner.get('row_index', 0)}"
             winner["duplicate_cluster_id"] = cluster_id
             winner_leads.append(winner)
 
-            # Secondary duplicates are archived in audit log
-            for dup in member_leads[1:]:
+            members = set(member_indices)
+            for dup_idx in member_indices[1:]:
+                dup = clean_candidates[dup_idx]
                 duplicate_records_merged += 1
-                sim_score = 100.0
-                reason = "Exact match on identifier"
-
-                pair_key1 = (winner.get("row_index", 0), dup.get("row_index", 0))
-                pair_key2 = (dup.get("row_index", 0), winner.get("row_index", 0))
-
-                if pair_key1 in exact_merge_reasons or pair_key2 in exact_merge_reasons:
-                    sim_score = 100.0
-                    reason = exact_merge_reasons.get(pair_key1) or exact_merge_reasons.get(pair_key2)
-                elif pair_key1 in fuzzy_merge_info or pair_key2 in fuzzy_merge_info:
-                    info = fuzzy_merge_info.get(pair_key1) or fuzzy_merge_info.get(pair_key2)
-                    sim_score, reason = info[0], info[1]
+                # The edge that linked this record into the cluster (direct to winner if one exists)
+                direct = edges.get((min(winner_idx, dup_idx), max(winner_idx, dup_idx)))
+                if direct:
+                    sim_score, reason = direct
                 else:
-                    sim_score = threshold
-                    reason = f"Composite fuzzy similarity ({threshold}%) cluster member"
+                    linked = [(pair, info) for pair, info in edges.items() if dup_idx in pair
+                              and (pair[0] in members and pair[1] in members)]
+                    sim_score, reason = linked[0][1] if linked else (0.0, "Linked through another cluster member")
+                    reason = f"{reason} (linked via another record in the same cluster)"
 
                 merged_logs.append({
                     "run_id": run_id,
+                    "winner_raw_lead_id": winner.get("row_index", 0),
                     "archived_raw_lead_id": dup.get("row_index", 0),
+                    "id_type": "csv_row",
                     "archived_lead_name": f"{dup.get('first_name') or ''} {dup.get('last_name') or ''}".strip(),
                     "archived_company": dup.get("company"),
                     "archived_email": dup.get("email"),
                     "similarity_score": sim_score,
-                    "merge_reason": f"{reason}. Merged into primary lead row #{winner.get('row_index', 0)}."
+                    "merge_reason": f"{reason}. Merged into CSV row #{winner.get('row_index', 0)}."
                 })
 
     # Append junk leads as unmerged singletons

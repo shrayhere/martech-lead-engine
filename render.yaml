@@ -1,0 +1,23 @@
+# Render Blueprint. SQLite on Render's normal disk is wiped on every deploy/restart,
+# so the API uses a managed Postgres database instead.
+databases:
+  - name: martech-db
+    databaseName: martech
+    plan: free            # Render's free Postgres expires after 30 days; use a paid plan for long-lived data
+
+services:
+  - type: web
+    name: martech-lead-engine-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: martech-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: http://localhost:3000   # add your exact Vercel URL here, comma-separated

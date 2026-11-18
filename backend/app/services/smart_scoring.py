@@ -1,5 +1,6 @@
 import json
 import math
+import numpy as np
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from app.config import settings
@@ -183,7 +184,28 @@ def smart_score_leads(
 
     scored_leads = []
 
-    for lead in leads:
+    # Pre-extract features for vectorized batch ML scoring
+    non_junk_indices = []
+    features_list = []
+    for idx, lead in enumerate(leads):
+        if not lead.get("is_junk"):
+            non_junk_indices.append(idx)
+            features_list.append(ml_scorer.extract_features(_MockLeadForML(lead)))
+
+    ml_scores_map = {}
+    if features_list and ml_scorer.pipeline is not None:
+        try:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                X_mat = np.array(features_list)
+                probs = ml_scorer.pipeline.predict_proba(X_mat)[:, 1]
+                for orig_idx, p in zip(non_junk_indices, probs):
+                    ml_scores_map[orig_idx] = round(float(p * 100), 1)
+        except Exception:
+            pass
+
+    for idx, lead in enumerate(leads):
         if lead.get("is_junk"):
             lead["rule_score"] = 0.0
             lead["ml_score"] = 0.0
@@ -195,13 +217,7 @@ def smart_score_leads(
             continue
 
         rule_score, breakdown, top_reasons = score_lead_with_adaptive_weights(lead, active_weights)
-        
-        # Predict ML score if model available
-        try:
-            mock_obj = _MockLeadForML(lead)
-            ml_score = ml_scorer.predict_score(mock_obj)
-        except Exception:
-            ml_score = rule_score
+        ml_score = ml_scores_map.get(idx, rule_score)
 
         active_score = rule_score if scoring_mode == "rule" else ml_score
         band = assign_score_band(active_score)

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}{% endblock %} · MarTech CRM</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="auth-wrap">
+  <section class="auth-side">
+    <div class="brand" style="padding:0"><div class="brand-mark">M</div>MarTech</div>
+    <div>
+      <h2>Clean data. Qualified leads. One relational CRM.</h2>
+      <p style="max-width:440px;color:#aebbd4">Import messy CSVs, deduplicate safely, and let activity-based scoring tell your team who is Hot, Warm or Cold.</p>
+      <ul>
+        <li><span>✓</span> CSV sync with preview, mapping &amp; rollback</li>
+        <li><span>✓</span> Duplicate review: keep, update or merge</li>
+        <li><span>✓</span> Configurable lead scoring &amp; Kanban pipeline</li>
+        <li><span>✓</span> Live analytics from your real records</li>
+      </ul>
+    </div>
+    <div class="small" style="color:#7f8ca6">© MarTech CRM</div>
+  </section>
+  <section class="auth-main">
+    <div class="auth-card">{% block form %}{% endblock %}</div>
+  </section>
+</div>
+<script>
+(function () {
+  const mode = "{% block mode %}{% endblock %}";
+  const form = document.getElementById("auth-form");
+  const err = document.getElementById("form-error");
+  const btn = document.getElementById("submit-btn");
+  const token = document.querySelector('meta[name="csrf-token"]').content;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.classList.add("hidden");
+    form.querySelectorAll(".field").forEach(f => { f.classList.remove("has-error"); f.querySelector(".err")?.remove(); });
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.remember = !!form.querySelector("#remember")?.checked;
+    btn.disabled = true; const label = btn.textContent; btn.textContent = "Please wait…";
+    try {
+      const res = await fetch(`/api/auth/${mode}`, { method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": token }, body: JSON.stringify(data) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        err.textContent = body.error || "Something went wrong."; err.classList.remove("hidden");
+        Object.entries(body.details || {}).forEach(([k, msg]) => {
+          const input = form.querySelector(`[name="${k}"]`); if (!input) return;
+          const field = input.closest(".field"); field.classList.add("has-error");
+          const s = document.createElement("span"); s.className = "err"; s.textContent = msg; field.appendChild(s);
+        });
+        return;
+      }
+      const next = new URLSearchParams(location.search).get("next");
+      location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    } catch (ex) {
+      err.textContent = "Network error — is the server running?"; err.classList.remove("hidden");
+    } finally { btn.disabled = false; btn.textContent = label; }
+  });
+})();
+</script>
+</body>
+</html>

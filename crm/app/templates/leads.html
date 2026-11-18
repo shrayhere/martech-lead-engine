@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Leads</h1><p>Contacts in a pre-customer lifecycle stage, classified Hot (60–100), Warm (30–59) and Cold (0–29).</p></div>
+  <div class="page-actions">
+    <div class="segmented" id="view-toggle"><button data-view="pipeline" class="active">Pipeline</button><button data-view="table">Table</button></div>
+    <button class="btn" id="export-btn">Export CSV</button>
+  </div>
+</div>
+<div class="grid grid-4 mb" id="lead-stats"></div>
+<div id="pipeline-view">
+  <div class="card mb" style="padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input class="input grow" type="search" id="k-q" placeholder="Filter pipeline by name, email or company…" style="max-width:380px">
+    <span class="small muted">Drag a card to another column to override its category. Dropping it back on its automatic category removes the override. Every change is audited.</span>
+  </div>
+  <div class="kanban" id="kanban"></div>
+</div>
+<div id="table-view" class="hidden">
+  <div class="segmented mb" id="cat-tabs">
+    <button data-cat="" class="active">All leads</button><button data-cat="hot">🔥 Hot</button><button data-cat="warm">Warm</button><button data-cat="cold">Cold</button>
+  </div>
+  <div class="card" id="lead-table"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/contact_table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/leads.js') }}"></script>
+{% endblock %}

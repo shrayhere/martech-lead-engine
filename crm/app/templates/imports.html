@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Import & Synchronization{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Import &amp; Synchronization</h1><p>Upload any CSV, map its columns, preview the changes, then sync safely inside a single transaction.</p></div>
+  <div class="page-actions"><button class="btn" id="restart" title="Start a new import">↺ New import</button></div>
+</div>
+
+<div class="card">
+  <div class="stepper" id="stepper">
+    <div class="step active" data-step="1"><span class="n">1</span>Upload</div>
+    <div class="step" data-step="2"><span class="n">2</span>Map columns</div>
+    <div class="step" data-step="3"><span class="n">3</span>Preview &amp; mode</div>
+    <div class="step" data-step="4"><span class="n">4</span>Sync report</div>
+  </div>
+  <div class="card-body">
+    <!-- step 1 -->
+    <section data-panel="1">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload CSV file">
+        <div class="ill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <h3>Drag &amp; drop a CSV file here</h3>
+        <p class="muted" style="margin:6px 0 14px">or <span class="link-btn">browse your files</span> · .csv only · up to {{ config.MAX_UPLOAD_MB }} MB · up to {{ '{:,}'.format(config.MAX_IMPORT_ROWS) }} rows</p>
+        <p class="small muted" style="margin:0">Comma, semicolon, tab or pipe delimited · UTF-8 or Windows-1252/Latin-1 encoding</p>
+        <input type="file" id="file-input" accept=".csv,text/csv" class="hidden">
+      </div>
+      <div id="upload-progress" class="hidden mt"><div class="small muted mb" id="upload-label">Uploading…</div><div class="progress"><span id="upload-bar" style="width:0%"></span></div></div>
+      <div class="mt small muted">Sample files are in the project's <code>samples/</code> folder:
+        <code>01_first_import.csv</code>, <code>02_second_import_updates.csv</code>, <code>03_different_columns_semicolon_latin1.csv</code>, <code>04_activity_updates.csv</code>.</div>
+    </section>
+    <!-- step 2 -->
+    <section data-panel="2" class="hidden">
+      <div id="file-meta" class="mb"></div>
+      <div id="upload-warnings"></div>
+      <div class="grid grid-main">
+        <div class="card"><div class="card-head"><div><h3>Column mapping</h3><p>Match each CSV column to a CRM field. Unmapped columns are ignored.</p></div>
+          <button class="btn sm" id="auto-map">Auto-detect</button></div>
+          <div id="mapping"></div></div>
+        <div class="card"><div class="card-head"><h3>Mapping checklist</h3></div><div class="card-body" id="map-check"></div></div>
+      </div>
+      <div class="card mt"><div class="card-head"><div><h3>File preview</h3><p>First 10 rows exactly as uploaded</p></div></div><div class="table-wrap" id="preview-table"></div></div>
+      <div class="page-actions mt" style="justify-content:flex-end"><button class="btn" data-goto="1">Back</button><button class="btn primary" id="to-step-3">Continue to preview →</button></div>
+    </section>
+    <!-- step 3 -->
+    <section data-panel="3" class="hidden">
+      <h3 class="mb">Synchronization mode</h3>
+      <div class="mode-cards mb" id="modes">
+        <div class="mode-card" data-mode="insert_only"><h4>Insert only</h4><p>Add new contacts. Existing records (same email) are never modified.</p></div>
+        <div class="mode-card" data-mode="update_existing"><h4>Update existing</h4><p>Update matching contacts only. Empty CSV cells keep current values. No new contacts.</p></div>
+        <div class="mode-card active" data-mode="upsert"><h4>Upsert</h4><p>Insert new contacts and update existing ones. Recommended for regular syncs.</p></div>
+      </div>
+      <div class="card" style="background:var(--surface-2)"><div class="card-body small" style="color:var(--text-2)">
+        <strong>Safety rules:</strong> exact email matches are treated as the same person; matches by phone or name + company are <em>never</em> merged automatically. They go to the duplicate review queue.
+        Records missing from the CSV are never deleted. The import runs in one database transaction and is rolled back completely if anything fails.</div></div>
+      <div class="page-actions mt"><button class="btn primary" id="run-preview">Run dry-run preview</button><span class="small muted">A dry run shows exactly what will happen without changing any data.</span></div>
+      <div id="preview-result" class="mt"></div>
+      <div class="page-actions mt" style="justify-content:flex-end"><button class="btn" data-goto="2">Back</button>
+        <button class="btn primary" id="execute" disabled>Confirm &amp; import</button></div>
+    </section>
+    <!-- step 4 -->
+    <section data-panel="4" class="hidden"><div id="final-report"></div></section>
+  </div>
+</div>
+
+<div class="card mt-lg">
+  <div class="card-head"><div><h3>Import history</h3><p>Every upload and synchronization run</p></div><a class="btn sm" href="/api/reports/imports.csv">Export history</a></div>
+  <div class="table-wrap"><table class="table"><thead><tr><th>File</th><th>Uploaded</th><th>Mode</th><th>Status</th><th>Rows</th><th>Inserted</th><th>Updated</th><th>Duplicates</th><th>Failed</th><th></th></tr></thead>
+    <tbody id="history"></tbody></table></div>
+  <div class="pagination" id="history-pages"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.UPLOAD_LIMIT = {{ config.MAX_CONTENT_LENGTH }};</script>
+<script src="{{ url_for('static', filename='js/pages/imports.js') }}"></script>
+{% endblock %}

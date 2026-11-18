@@ -1,0 +1,21 @@
+first_name,last_name,email,phone,job_title,company,industry,website,city,country,lead_source,activity,activity_date
+  Ritika ,Malhotra,RITIKA.MALHOTRA@TECHNOVA.IO ,(415) 555-0101,VP Marketing,TechNova Inc.,saas,www.technova.io,san francisco,usa,Webinar,Requested demo,2026-11-10
+Arnav,Kapoor,arnav.kapoor@technova.io,415.555.0102,Sales Director,technova inc,SaaS,technova.io,San Francisco,United States,LinkedIn,Asked for pricing,2026-11-12
+Meghna,Iyer,meghna.iyer@finedge.in,+91 98450 11223,Head of Growth,FinEdge Pvt Ltd,Fintech,finedge.in,bangalore,india,Website,form submitted,2026-11-05
+Tom,Becker,tom.becker@alpinelogix.de,0049 711 555 0199,Operations Manager,Alpine Logix GmbH,Logistics,alpinelogix.de,Stuttgart,DE,Trade Show,brochure,2026-10-28
+Grace,Lee,grace.lee@medicore.com,617-555-0144,Procurement Lead,MediCore,Healthcare,medicore.com,Boston,US,Google Ads,email opened,2026-11-14
+Vivek,Rao,vivek.rao@finedge.in,9845022334,CFO,FinEdge Private Limited,Fintech,finedge.in,Bengaluru,India,Referral,meeting,2026-11-15
+Sara,Nunez,sara.nunez@,555-0170,Analyst,MediCore,Healthcare,medicore.com,Boston,US,Website,,
+n/a,n/a,,,Intern,Unknown Co,,,,,,,
+Ritika,Malhotra,ritika.malhotra@technova.io,,VP Marketing,TechNova,SaaS,,,,Webinar,email clicked,2026-11-11
+Leo,Martins,leo.martins@brightpath.edu,+1 (212) 555-0123 ext 45,Program Director,BrightPath Academy,Education,brightpath.edu,new york city,United States,Email Campaign,website visit,2026-11-01
+Nisha,Verma,NISHA@greenwave.co,+91-22-5555-0198,Marketing Manager,GreenWave Energy,Energy,greenwave.co,Mumbai,India,LinkedIn,email opened,2026-09-20
+Olivia,Chen,olivia.chen@orbitstudio.co.uk,+44 20 7946 0958,Creative Director,Orbit Studio Ltd,Media,orbitstudio.co.uk,London,UK,Referral,,
+Kabir,Shah,kabir.shah@cloudnine.ai,,Data Scientist,CloudNine AI,SaaS,cloudnine.ai,Pune,India,Website,demo,2026-11-16
+Hannah,Fischer,hannah.fischer@alpinelogix.de,+49 711 555 0177,Supply Chain Lead,ALPINE LOGIX,Logistics,,Stuttgart,Germany,Trade Show,pricing,2026-11-13
+Arjun,Menon,arjun.menon@cloudnine.ai,98200 44556,CTO,CloudNine AI,SaaS,cloudnine.ai,Pune,India,Website,meeting scheduled,not-a-date
+Daniel,Owusu,daniel.owusu@medicore.com,617 555 0188,IT Director,MediCore,Healthcare,medicore.com,Boston,US,Google Ads,website visit,2026-11-17
+Fatima,Khan,,+971 4 555 0123,Regional Manager,Desert Rose Trading,Retail,desertrose.ae,dubai,uae,Trade Show,email opened,2026-11-02
+Chris,Wong,chris.wong@quantumretail.ai,+65 6555 0142,Product Lead,Quantum Retail Labs,SaaS,quantumretail.ai,Singapore,SG,Webinar,brochure downloaded,2026-11-09
+,,,,,,,,,,,,
+Aisha,Patel,aisha.patel@greenwave.co,+91 22 5555 0101,Sustainability Head,Greenwave Energy,Energy,greenwave.co,Mumbai,India,Webinar,demo requested,2026-11-17

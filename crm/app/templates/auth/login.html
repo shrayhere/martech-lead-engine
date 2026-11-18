@@ -1,0 +1,18 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Log in{% endblock %}
+{% block form %}
+<h1>Welcome back</h1>
+<p class="muted" style="margin:0 0 22px">Log in to your MarTech workspace.</p>
+<form id="auth-form" novalidate>
+  <div class="form-error hidden" id="form-error"></div>
+  <div class="field"><label for="email">Work email</label>
+    <input class="input" id="email" name="email" type="email" autocomplete="email" required autofocus></div>
+  <div class="field"><label for="password">Password</label>
+    <input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+  <label class="small" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <input type="checkbox" name="remember" id="remember"> Keep me signed in</label>
+  <button class="btn primary" type="submit" id="submit-btn">Log in</button>
+</form>
+<p class="small muted" style="margin-top:18px">New to MarTech? <a href="/register{{ '?next=' ~ request.args.get('next') if request.args.get('next') }}">Create an account</a></p>
+{% endblock %}
+{% block mode %}login{% endblock %}

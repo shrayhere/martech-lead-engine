@@ -26,18 +26,18 @@ CANONICAL_FIELDS = [
 CANONICAL_ALIASES = {
     "first_name": ["first_name", "fname", "first name", "given name", "forename", "first", "f_name", "first_nm"],
     "last_name": ["last_name", "lname", "last name", "surname", "family name", "last", "l_name", "last_nm"],
-    "full_name": ["name", "full_name", "full name", "lead_name", "contact_name", "contact", "prospect_name", "person_name", "client_name"],
-    "email": ["email", "email_address", "email address", "e-mail", "mail", "contact_email", "primary_email", "work_email", "business_email"],
-    "phone": ["phone", "phone_number", "phone number", "mobile", "telephone", "cell", "contact_number", "tel", "cellphone", "direct_phone", "work_phone"],
-    "company": ["company", "company_name", "company name", "organization", "org", "account", "business", "employer", "firm", "corp", "agency", "client_company"],
-    "job_title": ["job_title", "job title", "title", "role", "position", "designation", "occupation", "job", "headline"],
+    "full_name": ["name", "full_name", "full name", "contact person", "contact_person", "lead_name", "contact_name", "contact name", "prospect_name", "person_name", "client_name"],
+    "email": ["email", "email_address", "email address", "e-mail", "mail", "contact_email", "contact email", "contact mail", "contact_mail", "primary_email", "work_email", "business_email"],
+    "phone": ["phone", "phone_number", "phone number", "mobile", "telephone", "cell", "contact_number", "tel", "cellphone", "direct_phone", "direct dial", "direct_dial", "work_phone"],
+    "company": ["company", "company_name", "company name", "organization", "org", "account", "business", "employer", "firm", "corp", "agency", "client_company", "account firm", "account name", "firm name", "client firm"],
+    "job_title": ["job_title", "job title", "title", "role", "position", "designation", "occupation", "job", "headline", "role name", "role_name"],
     "industry": ["industry", "vertical", "segment", "sector", "business_type", "domain", "category", "market"],
-    "company_size": ["company_size", "company size", "size", "employees", "employee_count", "headcount", "num_employees", "team_size", "staff", "head_count"],
-    "state": ["state", "state_code", "state/province", "province", "region", "address_state", "location_state"],
+    "company_size": ["company_size", "company size", "size", "employees", "employee_count", "headcount", "num_employees", "team_size", "staff", "head_count", "head count"],
+    "state": ["state", "state_code", "state/province", "province", "region", "address_state", "location_state", "territory code", "territory_code"],
     "city": ["city", "town", "municipality", "address_city", "location_city"],
     "country": ["country", "nation", "country_code", "address_country"],
     "lead_source": ["lead_source", "source", "channel", "origin", "campaign", "utm_source", "medium", "acquisition_source"],
-    "last_activity_date": ["last_activity_date", "last activity date", "activity_date", "last_seen", "last_touch", "last_contact", "last_interaction", "updated_at"],
+    "last_activity_date": ["last_activity_date", "last activity date", "activity_date", "last_seen", "last_touch", "last_contact", "last_interaction", "last interaction", "updated_at"],
     "engagement_score": ["engagement_score", "engagement score", "engagement", "activity_score", "lead_score", "score", "rating", "clicks", "opens", "visits", "points"],
     "created_date": ["created_date", "created date", "created_at", "date_created", "signup_date", "date_added", "added_date", "timestamp", "date"]
 }
@@ -154,15 +154,16 @@ def detect_column_mapping(
         best_col = None
 
         for col in list(available_cols):
-            col_normalized = col.strip().lower()
+            clean_col = col.strip().lower().replace("_", " ").replace("-", " ")
             for alias in aliases:
-                # token_sort_ratio handles word orders like "name lead" vs "lead name"
-                score = fuzz.token_sort_ratio(col_normalized, alias.lower())
+                clean_alias = alias.lower().replace("_", " ").replace("-", " ")
+                # Use token_sort_ratio to avoid subset substring false-positives
+                score = fuzz.token_sort_ratio(clean_col, clean_alias)
                 if score > best_score:
                     best_score = score
                     best_col = col
 
-        if best_col and best_score >= 78.0:
+        if best_col and best_score >= 80.0:
             canonical_map[target] = best_col
             confidence_map[target] = round(best_score / 100.0, 2)
             tier_map[target] = f"Fuzzy Match ({best_score:.0f}%)"

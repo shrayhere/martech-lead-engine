@@ -211,11 +211,13 @@ def clean_and_normalize_records(
 
         # CRITICAL FILTER: Drop rows missing BOTH valid email and phone
         if not email and not phone:
+            raw_c = row.get("company")
+            comp_str = str(raw_c).strip() if (pd.notnull(raw_c) and str(raw_c).lower() not in {"nan", "none", "null"}) else None
             rejected_rows.append({
                 "row_number": row_num,
                 "first_name": fn,
                 "last_name": ln,
-                "company": row.get("company"),
+                "company": comp_str,
                 "reason": "Missing both valid email and phone contact details"
             })
             continue

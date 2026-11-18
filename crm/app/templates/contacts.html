@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Contacts{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Contacts</h1><p>Every person in your CRM, linked to their company and scored by engagement.</p></div>
+  <div class="page-actions">
+    <button class="btn" id="export-btn">Export CSV</button>
+    <a class="btn" href="/imports">Import</a>
+    <button class="btn primary" id="add-btn">+ New contact</button>
+  </div>
+</div>
+<div class="card" id="contact-table"></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/contact_table.js') }}"></script>
+<script>
+  const table = ContactTable(document.getElementById("contact-table"));
+  document.getElementById("add-btn").onclick = () => App.contactForm(null);
+  document.getElementById("export-btn").onclick = () => table.exportCsv();
+</script>
+{% endblock %}
