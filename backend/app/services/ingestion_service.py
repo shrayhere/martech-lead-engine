@@ -1,96 +1,39 @@
 import pandas as pd
-import io
 import uuid
 import re
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.models.schemas import RawLead
+from app.services.smart_parser import parse_csv_file
+from app.services.schema_mapper import apply_schema_mapping
 
-# Smart Header Alias Map for Real-World CSV Ingestion
-COLUMN_ALIASES = {
-    "first_name": ["first_name", "fname", "first name", "given name", "forename", "first"],
-    "last_name": ["last_name", "lname", "last name", "surname", "family name", "last"],
-    "email": ["email", "email_address", "email address", "e-mail", "mail", "contact_email", "primary_email"],
-    "company": ["company", "company_name", "company name", "organization", "org", "account", "business", "employer"],
-    "job_title": ["job_title", "job title", "title", "role", "position", "designation", "occupation"],
-    "phone": ["phone", "phone_number", "phone number", "mobile", "telephone", "cell", "contact_number"],
-    "state": ["state", "state_code", "state/province", "province", "region", "location", "address_state"],
-    "industry": ["industry", "vertical", "segment", "sector", "business_type", "domain"],
-    "company_size": ["company_size", "company size", "size", "employees", "employee_count", "headcount", "num_employees"],
-    "engagement_score": ["engagement_score", "engagement score", "engagement", "score", "activity_score", "lead_score", "rating"],
-    "last_activity_date": ["last_activity_date", "last activity date", "activity_date", "date", "last_seen", "updated_at", "created_at", "timestamp"]
-}
+# Fields the staged flow stores in raw_leads
+STAGED_FIELDS = ["first_name", "last_name", "email", "company", "job_title", "phone", "state", "industry",
+                 "company_size", "engagement_score", "last_activity_date"]
 
-def map_column_headers(df: pd.DataFrame) -> tuple[pd.DataFrame, dict, list]:
-    """
-    Intelligently maps arbitrary CSV column headers to canonical schema names.
-    Supports full name splitting and records which fields were mapped vs defaulted.
-    """
-    mapped_df = pd.DataFrame()
-    detected_headers = {str(c).strip().lower(): c for c in df.columns}
-    mapped_fields = {}
-    defaulted_fields = []
-
-    # Check for combined 'name' or 'full_name' column if first_name / last_name not explicitly present
-    name_col = None
-    for alias in ["name", "full_name", "full name", "lead_name"]:
-        if alias in detected_headers:
-            name_col = detected_headers[alias]
-            break
-
-    # Map each target schema field using aliases
-    for field, aliases in COLUMN_ALIASES.items():
-        found_col = None
-        for alias in aliases:
-            if alias in detected_headers:
-                found_col = detected_headers[alias]
-                break
-
-        if found_col is not None:
-            mapped_df[field] = df[found_col]
-            mapped_fields[field] = str(found_col)
-        else:
-            mapped_df[field] = None
-            defaulted_fields.append(field)
-
-    # Handle Full Name splitting if first_name / last_name were missing
-    if name_col is not None and (mapped_df["first_name"].isnull().all() or mapped_df["last_name"].isnull().all()):
-        first_names = []
-        last_names = []
-        for val in df[name_col]:
-            if pd.notnull(val) and str(val).strip():
-                parts = str(val).strip().split(maxsplit=1)
-                first_names.append(parts[0])
-                last_names.append(parts[1] if len(parts) > 1 else "")
-            else:
-                first_names.append(None)
-                last_names.append(None)
-        
-        if mapped_df["first_name"].isnull().all():
-            mapped_df["first_name"] = first_names
-            mapped_fields["first_name"] = f"{name_col} (Split)"
-            if "first_name" in defaulted_fields: defaulted_fields.remove("first_name")
-        if mapped_df["last_name"].isnull().all():
-            mapped_df["last_name"] = last_names
-            mapped_fields["last_name"] = f"{name_col} (Split)"
-            if "last_name" in defaulted_fields: defaulted_fields.remove("last_name")
-
-    return mapped_df, mapped_fields, defaulted_fields
 
 def process_csv_upload(file_content: bytes, filename: str, db: Session) -> dict:
     """
-    Parses any arbitrary CSV file, flexibly maps column headers to schema fields,
-    applies intelligent real-time fallbacks for missing columns, and stores in raw_leads.
+    Parses any CSV, maps its headers to schema fields and stores the rows in raw_leads.
+    Uses the same parser and header mapper as Smart Upload, so the staged flow accepts the same files:
+    comma / semicolon / tab / pipe delimiters, UTF-8 (with or without BOM) or Latin-1, and header names
+    such as "E-mail Address", "Tel", "Org" or a single "Full Name" column (split into first/last).
     """
     try:
-        df = pd.read_csv(io.BytesIO(file_content))
-    except Exception as e:
-        raise ValueError(f"Invalid CSV file format: {str(e)}")
+        df, _ = parse_csv_file(file_content, filename)
+    except ValueError as e:
+        raise ValueError(f"Invalid CSV file format: {e}")
 
     if df.empty:
         raise ValueError("Uploaded CSV file is completely empty.")
 
-    mapped_df, mapped_fields, defaulted_fields = map_column_headers(df)
+    mapped_df, mapping_summary = apply_schema_mapping(df, None)
+    source_of = mapping_summary.get("canonical_to_source", {})
+    mapped_fields = {f: str(source_of[f]) for f in STAGED_FIELDS if f in source_of}
+    defaulted_fields = [f for f in STAGED_FIELDS if f not in source_of]
+    for f in STAGED_FIELDS:
+        if f not in mapped_df.columns:
+            mapped_df[f] = None
 
     # Ensure at least 1 core contact/identity column was mapped (email, name, or company)
     has_contact = (
