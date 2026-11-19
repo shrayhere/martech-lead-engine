@@ -153,11 +153,13 @@ def execute_smart_pipeline(
         update_run_progress(run_id, "score", 75, "running", db)
 
         # ----------------------------------------------------
-        # STAGE 5: SCORING ENGINE (WITH DEGRADATION FALLBACK)
+        # STAGE 5: SCORING ENGINE (WITH DEGRADATION FALLBACK & HUBSPOT RULES)
         # ----------------------------------------------------
         t0 = time.perf_counter()
+        from app.services.hubspot_import import get_active_rules
+        hs_rules = get_active_rules(db) if db else []
         scored_leads, score_summary = smart_score_leads(
-            winner_leads, scoring_mode=scoring_mode
+            winner_leads, scoring_mode=scoring_mode, hubspot_rules=hs_rules
         )
         timings["score_ms"] = round((time.perf_counter() - t0) * 1000, 2)
         update_run_progress(run_id, "assign", 90, "running", db)

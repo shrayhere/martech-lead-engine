@@ -172,3 +172,53 @@ class AssignmentLog(Base):
     rule_matched = Column(String, nullable=False)
     reason = Column(String, nullable=False)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HubSpotWorkflow(Base):
+    """A HubSpot automation workflow imported from the Automation v4 API."""
+    __tablename__ = "hubspot_workflows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hubspot_id = Column(String, unique=True, index=True, nullable=False)  # HubSpot's internal flow id
+    name = Column(String, nullable=False)
+    workflow_type = Column(String, nullable=True)      # e.g. CONTACT_DATE_CENTERED, CONTACT
+    status = Column(String, nullable=True)             # ACTIVE, INACTIVE, DRAFT
+    enrollment_trigger_summary = Column(Text, nullable=True)   # JSON: parsed trigger info
+    actions_summary = Column(Text, nullable=True)              # JSON: list of parsed actions
+    mapped = Column(Boolean, default=False)            # True if converted to scoring rules
+    not_mapped_reason = Column(String, nullable=True)  # why it couldn't be mapped
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HubSpotScoringRule(Base):
+    """A scoring rule derived from a HubSpot workflow action/trigger."""
+    __tablename__ = "hubspot_scoring_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    workflow_id = Column(String, index=True, nullable=False)  # → hubspot_workflows.hubspot_id
+    rule_type = Column(String, nullable=False)         # "score_boost" | "score_penalty" | "routing"
+    trigger_type = Column(String, nullable=True)       # "property_change" | "list_membership" | "form_submit" | etc.
+    field_name = Column(String, nullable=True)         # HubSpot property name
+    field_value = Column(String, nullable=True)        # matching value / operator
+    score_delta = Column(Float, nullable=True)         # +/- points to apply
+    routing_rep = Column(String, nullable=True)        # rep name for routing rules
+    description = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HubSpotSyncLog(Base):
+    """Log of each sync attempt (import from HubSpot or push to HubSpot)."""
+    __tablename__ = "hubspot_sync_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    direction = Column(String, nullable=False)         # "import" (pull from HS) | "push" (send to HS)
+    status = Column(String, nullable=False)            # "ok" | "error"
+    workflows_found = Column(Integer, nullable=True)
+    workflows_mapped = Column(Integer, nullable=True)
+    rules_created = Column(Integer, nullable=True)
+    contacts_synced = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+    triggered_by = Column(String, nullable=True)       # "manual" | "scheduled" | "webhook"
+    synced_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -56,7 +56,18 @@ def ensure_sqlite_columns(target_engine):
             ],
             "assignment_log": [
                 ("run_id", "VARCHAR")
-            ]
+            ],
+            "hubspot_workflows": [
+                ("mapped", "BOOLEAN"),
+                ("not_mapped_reason", "VARCHAR"),
+                ("synced_at", "TIMESTAMP"),
+            ],
+            "hubspot_scoring_rules": [
+                ("active", "BOOLEAN"),
+            ],
+            "hubspot_sync_log": [
+                ("triggered_by", "VARCHAR"),
+            ],
         }
         inspector = inspect(conn)
         for tbl, cols in needed_cols.items():

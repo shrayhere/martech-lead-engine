@@ -14,5 +14,7 @@ psycopg2-binary==2.9.11     # Postgres driver (Render)
 reportlab==4.4.4           # used by ../generate_pdf_report.py
 httpx==0.28.1              # HubSpot sync (app/services/hubspot_sync.py); also used by the test client
 anthropic==2.10.0          # optional Claude classification engine (only called when ANTHROPIC_API_KEY is set)
+apscheduler==3.11.0        # background scheduler for HubSpot sync
+openpyxl==3.1.5            # Excel file ingestion (.xlsx support)
 # development / tests
 pytest==9.2.0

@@ -167,14 +167,19 @@ class _MockLeadForML:
 
 def smart_score_leads(
     leads: List[Dict[str, Any]],
-    scoring_mode: str = "rule"
+    scoring_mode: str = "rule",
+    hubspot_rules: List[Dict[str, Any]] = None
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Scores all clean leads with automatic graceful degradation:
     - Automatically re-normalizes signal weights if engagement or recency columns are missing.
+    - Applies HubSpot workflow scoring rules (boosts/penalties from imported workflows).
     - Computes both Rule-based and ML classifier scores.
     - Classifies leads into Hot (80-100), Warm (50-79), Cold (0-49).
     """
+    if hubspot_rules is None:
+        hubspot_rules = []
+
     availability = determine_signal_availability(leads)
     active_weights, degraded_signals = calculate_renormalized_weights(availability)
 
@@ -205,6 +210,8 @@ def smart_score_leads(
         except Exception:
             pass
 
+    from app.services.hubspot_import import apply_hubspot_rules_to_lead
+
     for idx, lead in enumerate(leads):
         if lead.get("is_junk"):
             lead["rule_score"] = 0.0
@@ -218,6 +225,21 @@ def smart_score_leads(
 
         rule_score, breakdown, top_reasons = score_lead_with_adaptive_weights(lead, active_weights)
         ml_score = ml_scores_map.get(idx, rule_score)
+
+        # Apply HubSpot workflow-derived rules if available
+        hs_delta = apply_hubspot_rules_to_lead(lead, hubspot_rules) if hubspot_rules else 0.0
+        if hs_delta != 0.0:
+            rule_score = min(100.0, max(0.0, rule_score + hs_delta))
+            ml_score = min(100.0, max(0.0, ml_score + hs_delta))
+            breakdown["hubspot_workflow_delta"] = hs_delta
+            breakdown["signals"].append({
+                "name": "HubSpot Workflow Rule",
+                "category": "Automation",
+                "score": hs_delta,
+                "weight": 1.0,
+                "points": hs_delta,
+                "reason": f"Workflow score modifier: {hs_delta:+.1f} pts"
+            })
 
         active_score = rule_score if scoring_mode == "rule" else ml_score
         band = assign_score_band(active_score)
@@ -242,6 +264,7 @@ def smart_score_leads(
         "total_scored": len(scored_leads),
         "degraded_signals": degraded_signals,
         "re_normalized_weights": active_weights,
+        "hubspot_rules_applied": len(hubspot_rules),
         "distribution": {
             "Hot": hot_count,
             "Warm": warm_count,

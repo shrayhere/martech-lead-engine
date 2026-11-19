@@ -1,9 +1,14 @@
-# Render Blueprint. SQLite on Render's normal disk is wiped on every deploy/restart,
-# so the API uses a managed Postgres database instead.
+# Render Blueprint — MarTech Lead Engine
+# Deploy: `render blueprint apply render.yaml` or connect via Render dashboard.
+#
+# NOTE: SQLite is wiped on every Render restart, so this config uses a managed
+#       Postgres database. The free tier expires after 30 days; use a paid plan
+#       for production data persistence.
+
 databases:
   - name: martech-db
     databaseName: martech
-    plan: free            # Render's free Postgres expires after 30 days; use a paid plan for long-lived data
+    plan: free   # upgrade to starter ($7/mo) for persistent production data
 
 services:
   - type: web
@@ -12,17 +17,27 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.13.0
+        value: "3.13.0"
       - key: DATABASE_URL
         fromDatabase:
           name: martech-db
           property: connectionString
+      # Set to your exact Vercel frontend URL (e.g. https://martech-xyz.vercel.app)
+      # Comma-separated if you have preview deploys.
       - key: CORS_ORIGINS
-        value: http://localhost:3000   # add your exact Vercel URL here, comma-separated
-      # Secrets: Render asks for these values in the dashboard; they are never stored in git.
-      - key: HUBSPOT_ACCESS_TOKEN      # optional: enables "Push to HubSpot" (see docs/hubspot_setup.md)
+        value: "http://localhost:3000,http://localhost:5173"  # TODO: add your Vercel URL
+      - key: CORS_ORIGIN_REGEX
+        value: "https://martech-lead-engine(-[a-z0-9-]+)?\\.vercel\\.app"
+      # HubSpot integration — set in Render dashboard, never in git.
+      - key: HUBSPOT_ACCESS_TOKEN      # Private app token with automation + crm.objects.* scopes
         sync: false
-      - key: ANTHROPIC_API_KEY         # optional: enables the Claude classification engine
+      - key: HUBSPOT_CLIENT_SECRET     # Optional: validates webhook signatures (recommended)
+        sync: false
+      - key: HUBSPOT_SYNC_INTERVAL_HOURS  # Default: 1 (background workflow re-sync frequency)
+        value: "1"
+      # AI classification — set in Render dashboard, never in git.
+      - key: ANTHROPIC_API_KEY         # Optional: enables Claude classification engine
         sync: false

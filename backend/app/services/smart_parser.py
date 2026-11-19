@@ -67,8 +67,9 @@ def detect_delimiter(text_sample: str) -> str:
 
 def parse_csv_file(file_bytes: bytes, filename: str = "upload.csv") -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Robust CSV parser:
+    Robust CSV / Excel parser:
     - Enforces 50MB file size limit.
+    - Supports CSV, TSV, and Excel (.xlsx, .xls) files.
     - Autodetects encoding (utf-8, utf-8-sig, latin-1, etc.).
     - Autodetects delimiter (comma, semicolon, tab, pipe).
     - Gracefully handles quoted multiline fields, blank lines, and ragged rows without crashing.
@@ -78,6 +79,37 @@ def parse_csv_file(file_bytes: bytes, filename: str = "upload.csv") -> Tuple[pd.
         raise ValueError(
             f"File size exceeds 50 MB limit (received {len(file_bytes) / (1024*1024):.2f} MB)."
         )
+
+    lower_fn = filename.lower()
+    if lower_fn.endswith(".xlsx") or lower_fn.endswith(".xls"):
+        try:
+            df = pd.read_excel(io.BytesIO(file_bytes), dtype=str)
+        except Exception as e:
+            raise ValueError(f"Failed to parse Excel file: {str(e)}")
+
+        cleaned_cols = []
+        seen = {}
+        for i, col in enumerate(df.columns):
+            c_str = str(col).strip().strip('"').strip("'")
+            if not c_str or c_str.startswith("Unnamed:"):
+                c_str = f"column_{i+1}"
+            if c_str in seen:
+                seen[c_str] += 1
+                c_str = f"{c_str}_{seen[c_str]}"
+            else:
+                seen[c_str] = 0
+            cleaned_cols.append(c_str)
+        df.columns = cleaned_cols
+
+        parse_meta = {
+            "filename": filename,
+            "encoding": "binary-excel",
+            "delimiter": "n/a",
+            "total_parsed_rows": len(df),
+            "total_columns": len(df.columns),
+            "detected_headers": list(df.columns)
+        }
+        return df, parse_meta
 
     decoded_text, detected_encoding = detect_encoding_and_decode(file_bytes)
     
