@@ -8,6 +8,7 @@ from sqlalchemy import desc, asc, or_
 
 from app.database import get_db
 from app.models.schemas import CleanLead, Rep, CleaningLog, PipelineRun
+from app.utils.security import sanitize_csv_cell
 
 router = APIRouter(prefix="/leads", tags=["Lead Lists & Bands"])
 
@@ -294,11 +295,12 @@ def export_leads(
             except Exception:
                 pass
 
-        writer.writerow([
+        row_data = [
             l.id, name, l.email or "", l.phone or "", l.company or "", l.job_title or "",
             l.industry or "", l.company_size or "", l.state or "", round(l.active_score or 0.0, 1),
             l.score_band or "", rep_name, l.assignment_reason or "", top_reasons_str, l.last_activity_date or ""
-        ])
+        ]
+        writer.writerow([sanitize_csv_cell(c) for c in row_data])
 
     csv_filename = f"leads_{band_lower}_{(target_run_id or 'all')[:8]}.csv"
     return Response(

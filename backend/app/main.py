@@ -18,12 +18,16 @@ if _env_path.exists():
     except Exception as _e:
         logging.getLogger(__name__).warning("Failed to parse .env file: %s", _e)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from collections import defaultdict
+import time
 
-from app.database import engine, Base, ensure_sqlite_columns
+from app.database import engine, Base, ensure_sqlite_columns, run_migrations
 from app.routes import ingestion, cleaning, scoring, assignment, pipeline, band_leads
-from app.routes import quality, review, classification, hubspot
+from app.routes import quality, review, classification, hubspot, auth
+from app.services.auth_service import verify_session_token
 
 logger = logging.getLogger(__name__)
 
@@ -61,35 +65,48 @@ async def lifespan(app: FastAPI):
     # Create / migrate database tables
     Base.metadata.create_all(bind=engine)
     ensure_sqlite_columns(engine)
+    run_migrations()
 
-    # Start background scheduler
+    # Pre-warm ML and NLP models once at startup (never on request)
+    try:
+        from app.services.classifier import _local_models
+        from app.ml.scoring_model import ml_scorer
+        _local_models()
+        if ml_scorer.pipeline is None:
+            ml_scorer._load_or_train_model()
+        logger.info("Scikit-learn models pre-warmed and ready.")
+    except Exception as e:
+        logger.warning("Model warm-up error: %s", e)
+
+    # Start background scheduler if token configured and not in test mode
     sync_interval_hours = int(os.getenv("HUBSPOT_SYNC_INTERVAL_HOURS", "1"))
     bg_task = None
-    try:
-        from apscheduler.schedulers.background import BackgroundScheduler
-        _scheduler = BackgroundScheduler()
-        _scheduler.add_job(
-            _scheduled_hubspot_import,
-            "interval",
-            hours=sync_interval_hours,
-            id="hubspot_import",
-            replace_existing=True,
-        )
-        _scheduler.start()
-        logger.info("APScheduler started: HubSpot sync every %d hour(s)", sync_interval_hours)
-    except Exception as e:
-        logger.info("APScheduler not available, using asyncio background worker: %s", e)
-        import asyncio
-        async def _async_sync_worker():
-            while True:
-                try:
-                    await asyncio.sleep(sync_interval_hours * 3600)
-                    _scheduled_hubspot_import()
-                except asyncio.CancelledError:
-                    break
-                except Exception as err:
-                    logger.error("Async HubSpot background sync error: %s", err)
-        bg_task = asyncio.create_task(_async_sync_worker())
+    if os.getenv("HUBSPOT_ACCESS_TOKEN") and not os.getenv("TESTING"):
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            _scheduler = BackgroundScheduler()
+            _scheduler.add_job(
+                _scheduled_hubspot_import,
+                "interval",
+                hours=sync_interval_hours,
+                id="hubspot_import",
+                replace_existing=True,
+            )
+            _scheduler.start()
+            logger.info("APScheduler started: HubSpot sync every %d hour(s)", sync_interval_hours)
+        except Exception as e:
+            logger.info("APScheduler not available, using asyncio background worker: %s", e)
+            import asyncio
+            async def _async_sync_worker():
+                while True:
+                    try:
+                        await asyncio.sleep(sync_interval_hours * 3600)
+                        _scheduled_hubspot_import()
+                    except asyncio.CancelledError:
+                        break
+                    except Exception as err:
+                        logger.error("Async HubSpot background sync error: %s", err)
+            bg_task = asyncio.create_task(_async_sync_worker())
 
     yield  # app runs
 
@@ -132,7 +149,89 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Rate limiting & Authentication storage
+_general_reqs: dict = defaultdict(list)
+_upload_reqs: dict = defaultdict(list)
+
+
+def is_rate_limited(client_ip: str, is_upload: bool) -> bool:
+    if os.getenv("TESTING") == "1" and not os.getenv("TEST_RATE_LIMIT"):
+        return False
+    now = time.time()
+    store = _upload_reqs if is_upload else _general_reqs
+    limit = 10 if is_upload else 60
+    # 60 second sliding window
+    valid = [t for t in store[client_ip] if now - t < 60.0]
+    if len(valid) >= limit:
+        store[client_ip] = valid
+        return True
+    valid.append(now)
+    store[client_ip] = valid
+    return False
+
+
+EXEMPT_ROUTES = {
+    "/api/health",
+    "/api/hubspot/webhook",
+    "/api/auth/login",
+    "/api/auth/status",
+    "/api/report-pdf",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+}
+
+
+@app.middleware("http")
+async def security_and_auth_middleware(request: Request, call_next):
+    path = request.url.path
+
+    # Allow CORS preflight requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    # 1. Rate Limiting for /api
+    if path.startswith("/api"):
+        is_upload = path in ("/api/pipeline/run", "/api/leads/upload")
+        if is_rate_limited(client_ip, is_upload):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded. Maximum 10/min for uploads, 60/min for other requests."}
+            )
+
+    # 2. Authentication for /api routes
+    if path.startswith("/api") and path not in EXEMPT_ROUTES:
+        token = request.cookies.get("session_token")
+        if not token:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+
+        if not verify_session_token(token):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication required. Please log in with the application password."}
+            )
+
+    response = await call_next(request)
+
+    # 3. Security Headers
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:;"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if "x-render-origin-server" in response.headers:
+        del response.headers["x-render-origin-server"]
+
+    return response
+
+
 # Routers
+app.include_router(auth.router, prefix="/api")
 app.include_router(pipeline.router, prefix="/api")
 app.include_router(band_leads.router, prefix="/api")
 app.include_router(ingestion.router, prefix="/api")

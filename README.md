@@ -150,14 +150,28 @@ npm run dev
 2. Connect repo to Vercel.
 3. Vercel automatically detects Vite settings. Uses included `frontend/vercel.json` for API rewrites.
 
-### Backend Deployment (Render + Postgres)
-SQLite does **not** persist on Render: the service disk is wiped on every deploy and restart. The Blueprint in [`render.yaml`](render.yaml) (repository root) therefore creates a managed **Render Postgres** database and passes its URL to the API as `DATABASE_URL`. `postgres://` URLs are handled automatically.
-1. In Render: **New → Blueprint**, pick this repository. It creates `martech-db` and the `martech-lead-engine-api` web service (`rootDir: backend`).
-2. Set `CORS_ORIGINS` to your exact Vercel URL (comma-separated for several). Production and preview URLs matching `https://martech-lead-engine*.vercel.app` are allowed by default through `CORS_ORIGIN_REGEX`.
-3. Render's free Postgres plan expires after 30 days. Use a paid plan for data you need to keep.
-4. Optional secrets (`sync: false` in `render.yaml`, so Render asks for them and they never live in git): `HUBSPOT_ACCESS_TOKEN` (HubSpot push), `ANTHROPIC_API_KEY` (Claude classification engine).
+### Backend Deployment (Render + PostgreSQL)
+SQLite does **not** persist on Render: the service disk is ephemeral and wiped on every deploy or restart. To keep your leads, runs, and HubSpot rules safe, connect a managed PostgreSQL database via the `DATABASE_URL` environment variable.
 
-Postgres support is configured but has not been tested against a live Postgres server here. The test suite runs on SQLite.
+#### Option A: Free Serverless PostgreSQL on Neon (Recommended - Never Expires)
+1. Sign up for free at [neon.tech](https://neon.tech).
+2. Create a new project: e.g. `martech-lead-engine`.
+3. In the Neon Console dashboard, copy the connection string under **Connection Details** (e.g. `postgresql://neondb_owner:password@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require`).
+4. Go to your Render Web Service dashboard (`martech-lead-engine-api`) -> **Environment**.
+5. Add or update the environment variable:
+   - **Key**: `DATABASE_URL`
+   - **Value**: Your Neon PostgreSQL connection string.
+6. Trigger a redeploy. Alembic will automatically run all database migrations on startup. Data will now safely survive every restart!
+
+#### Option B: Render PostgreSQL
+1. In your Render Dashboard, click **New +** -> **PostgreSQL**.
+2. Name it `martech-db`, select Region matching your web service, and choose the Free plan.
+3. Once provisioned, copy the **Internal Database URL** (e.g. `postgres://martech_db_user:...@dpg-xyz/martech_db`).
+4. In your Web Service (`martech-lead-engine-api`) -> **Environment**, set `DATABASE_URL` to this URL. Render's `postgres://` format is automatically translated to `postgresql+psycopg2://` by the backend.
+*(Note: Render free databases expire after 30 days; Neon is recommended for long-term free hosting).*
+
+#### Local Development Fallback
+If `DATABASE_URL` is not set in the environment or `.env`, the backend falls back to local SQLite (`sqlite:///./martech.db`). All Alembic migrations run seamlessly on both PostgreSQL and SQLite.
 
 ---
 

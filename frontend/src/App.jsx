@@ -10,6 +10,7 @@ import QualityScorePage from './components/QualityScorePage';
 import ReviewQueuePage from './components/ReviewQueuePage';
 import ClassificationPage from './components/ClassificationPage';
 import HubSpotPage from './components/HubSpotPage';
+import LoginModal from './components/LoginModal';
 
 // ── Global toast context ─────────────────────────────────────────────────────
 let _addToast = () => {};
@@ -81,6 +82,44 @@ export default function App() {
   const [runs, setRuns] = useState([]);
   const [selectedRunId, setSelectedRunId] = useState(null);
   const [targetLeadBand, setTargetLeadBand] = useState('all');
+  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const checkAuthStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/status');
+      if (res.ok) {
+        const data = await res.json();
+        setIsAuthenticated(Boolean(data.authenticated));
+        setShowLoginModal(!data.authenticated);
+      } else {
+        setIsAuthenticated(false);
+        setShowLoginModal(true);
+      }
+    } catch {
+      setIsAuthenticated(false);
+      setShowLoginModal(true);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    localStorage.removeItem('auth_token');
+    setIsAuthenticated(false);
+    setShowLoginModal(true);
+    toast('Logged out', 'info');
+  };
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    setShowLoginModal(false);
+    toast('Access granted', 'success');
+    fetchRuns();
+    fetchRawLeads();
+    fetchCleanLeads();
+  };
 
   const fetchRuns = useCallback(async () => {
     try {
@@ -110,10 +149,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchRuns();
-    fetchRawLeads();
-    fetchCleanLeads();
-  }, []);
+    checkAuthStatus();
+
+    const onUnauthorized = () => {
+      setIsAuthenticated(false);
+      setShowLoginModal(true);
+    };
+    window.addEventListener('auth:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
+  }, [checkAuthStatus]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchRuns();
+      fetchRawLeads();
+      fetchCleanLeads();
+    }
+  }, [isAuthenticated, fetchRuns, fetchRawLeads, fetchCleanLeads]);
 
   const handlePipelineCompleted = (newRunId) => {
     setSelectedRunId(newRunId);
@@ -139,6 +191,8 @@ export default function App() {
         selectedRunId={selectedRunId}
         onSelectRun={rId => setSelectedRunId(rId)}
         extraRight={<HubSpotStatusPill onClick={() => setActiveTab('hubspot')} />}
+        isAuthenticated={isAuthenticated}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -181,6 +235,11 @@ export default function App() {
       <footer className="border-t py-5 text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
         MarTech Data Quality &amp; Lead Scoring Engine · Autonomous B2B Pipeline
       </footer>
+
+      <LoginModal
+        isOpen={showLoginModal}
+        onLoginSuccess={handleLoginSuccess}
+      />
 
       <ToastContainer />
     </div>

@@ -63,36 +63,65 @@ def score_lead_with_adaptive_weights(
 ) -> Tuple[float, Dict[str, Any], List[str]]:
     """
     Computes explainable score using active re-normalized weights.
-    Returns: (total_score, breakdown_dict, top_3_reasons)
+    Validates ranges:
+      - Engagement: 0-100 (out-of-range or missing scores 0.0 pts)
+      - Company Size: > 0 (<=0 or missing scores 0.0 pts)
+      - Recency: real calendar dates <= today (invalid/future/missing scores 0.0 pts)
+    Adds data completeness warnings and flags to score reasons.
     """
-    # 1. Company Size
-    cs_val = lead.get("company_size") or 0
+    completeness_warnings = []
+
+    # 1. Company Size (must be > 0)
+    cs_val = lead.get("company_size")
     size_score, size_label = score_company_size(cs_val)
+    if size_score == 0:
+        completeness_warnings.append("Company size missing or invalid")
     w_cs = active_weights.get("company_size", 0.0)
     cs_points = round(size_score * w_cs, 1)
 
     # 2. Target Industry
     ind_val = lead.get("industry") or ""
-    is_target_ind = any(t.lower() in ind_val.lower() for t in settings.TARGET_INDUSTRIES)
-    ind_score = 100 if is_target_ind else 30
+    is_target_ind = any(t.lower() in ind_val.lower() for t in settings.TARGET_INDUSTRIES) if ind_val else False
+    ind_score = 100 if is_target_ind else (30 if ind_val else 0)
     w_ind = active_weights.get("target_industry", 0.0)
     ind_points = round(ind_score * w_ind, 1)
 
     # 3. Title Seniority
     title_val = lead.get("job_title") or ""
     sen_score, sen_label = classify_seniority(title_val)
+    if not title_val or not str(title_val).strip():
+        completeness_warnings.append("Job title missing")
     w_sen = active_weights.get("title_seniority", 0.0)
     sen_points = round(sen_score * w_sen, 1)
 
-    # 4. Engagement Score
+    # 4. Engagement Score (0-100; missing or out-of-range = 0 pts)
     eng_val = lead.get("engagement_score")
-    eng_score = float(eng_val) if eng_val is not None else 50.0
+    eng_missing = False
+    if eng_val is None or str(eng_val).strip() in {"", "None", "nan"}:
+        eng_score = 0.0
+        eng_missing = True
+        completeness_warnings.append("Engagement missing")
+    else:
+        try:
+            ev = float(eng_val)
+            if 0.0 <= ev <= 100.0:
+                eng_score = ev
+            else:
+                eng_score = 0.0
+                eng_missing = True
+                completeness_warnings.append("Engagement out of range (treated as missing)")
+        except (ValueError, TypeError):
+            eng_score = 0.0
+            eng_missing = True
+            completeness_warnings.append("Engagement invalid")
     w_eng = active_weights.get("engagement", 0.0)
     eng_points = round(eng_score * w_eng, 1)
 
-    # 5. Recency Decay
+    # 5. Recency Decay (missing or invalid/future date = lowest recency 0 pts)
     rec_val = lead.get("last_activity_date")
     rec_score, days_ago = score_recency(rec_val)
+    if rec_score == 0.0:
+        completeness_warnings.append("Last activity date missing or invalid")
     w_rec = active_weights.get("recency", 0.0)
     rec_points = round(rec_score * w_rec, 1)
 
@@ -106,7 +135,7 @@ def score_lead_with_adaptive_weights(
             "score": size_score,
             "weight": w_cs,
             "points": cs_points,
-            "reason": f"Company size: {size_label} ({cs_val} employees)"
+            "reason": f"Company size: {size_label} ({cs_val or 0} employees)"
         },
         {
             "name": "Industry Match",
@@ -130,7 +159,7 @@ def score_lead_with_adaptive_weights(
             "score": eng_score,
             "weight": w_eng,
             "points": eng_points,
-            "reason": f"Marketing engagement level: {eng_score:.0f}/100"
+            "reason": f"Marketing engagement level: {eng_score:.0f}/100" if not eng_missing else "Engagement missing (scored 0)"
         },
         {
             "name": "Activity Recency",
@@ -138,19 +167,24 @@ def score_lead_with_adaptive_weights(
             "score": rec_score,
             "weight": w_rec,
             "points": rec_points,
-            "reason": f"Last touch {days_ago} days ago ({rec_val or 'N/A'})"
+            "reason": f"Last touch {days_ago} days ago ({rec_val or 'N/A'})" if rec_score > 0 else "Activity date missing or invalid (lowest recency 0 pts)"
         }
     ]
 
-    # Sort signals by points contributed to get top 3 reasons
+    # Sort signals by points contributed to get top reasons
     sorted_signals = sorted(signals, key=lambda s: s["points"], reverse=True)
     top_3_reasons = [s["reason"] for s in sorted_signals[:3] if s["points"] > 0]
+    if completeness_warnings:
+        top_3_reasons.append("Completeness notice: " + "; ".join(completeness_warnings))
+
     if len(top_3_reasons) < 3:
         top_3_reasons.extend([s["reason"] for s in sorted_signals if s["reason"] not in top_3_reasons][: 3 - len(top_3_reasons)])
 
     breakdown = {
         "final_score": total_score,
-        "top_reasons": top_3_reasons,
+        "data_completeness": len(completeness_warnings) == 0,
+        "completeness_warnings": completeness_warnings,
+        "top_reasons": top_3_reasons[:3],
         "signals": signals
     }
 

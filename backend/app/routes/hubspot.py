@@ -13,6 +13,8 @@ import json
 import hashlib
 import hmac
 import os
+import time
+import base64
 from typing import Optional, List, Any
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
@@ -276,20 +278,42 @@ async def hubspot_webhook(request: Request, db: Session = Depends(get_db)):
     """
     body_bytes = await request.body()
 
-    # Signature verification (optional but recommended in production)
+    # Signature verification (mandatory if HUBSPOT_CLIENT_SECRET is configured)
     client_secret = os.getenv("HUBSPOT_CLIENT_SECRET")
     if client_secret:
         sig_header = request.headers.get("X-HubSpot-Signature-v3", "")
-        timestamp = request.headers.get("X-HubSpot-Request-Timestamp", "")
+        timestamp_header = request.headers.get("X-HubSpot-Request-Timestamp", "")
+        if not sig_header or not timestamp_header:
+            raise HTTPException(status_code=401, detail="Missing required HubSpot signature headers")
+
+        # Reject timestamps older than 5 minutes (300 seconds)
+        try:
+            ts_val = float(timestamp_header)
+            # If in milliseconds (> 1e11), convert to seconds
+            ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
+            if abs(time.time() - ts_sec) > 300:
+                raise HTTPException(status_code=401, detail="HubSpot webhook timestamp expired (>5 minutes)")
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Invalid HubSpot timestamp format")
+
         uri = str(request.url)
-        expected = hmac.new(
+        body_str = body_bytes.decode("utf-8", errors="replace")
+        source = f"{request.method}{uri}{body_str}{timestamp_header}"
+        expected_hex = hmac.new(
             client_secret.encode(),
-            f"POST{uri}{body_bytes.decode()}{timestamp}".encode(),
+            source.encode(),
             hashlib.sha256,
         ).hexdigest()
-        # Note: hmac.new is a convenience alias for hmac.HMAC in Python stdlib
-        if not hmac.compare_digest(sig_header, expected):
-            raise HTTPException(status_code=403, detail="Invalid HubSpot webhook signature")
+        expected_b64 = base64.b64encode(
+            hmac.new(
+                client_secret.encode(),
+                source.encode(),
+                hashlib.sha256,
+            ).digest()
+        ).decode()
+
+        if not (hmac.compare_digest(sig_header, expected_hex) or hmac.compare_digest(sig_header, expected_b64)):
+            raise HTTPException(status_code=401, detail="Invalid HubSpot webhook signature")
 
     try:
         events = json.loads(body_bytes)

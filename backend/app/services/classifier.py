@@ -25,6 +25,7 @@ from app.services.cleaning_service import JUNK_PLACEHOLDERS
 ML_DIR = os.path.join(os.path.dirname(__file__), "..", "ml")
 TRAIN_FILE = os.path.join(ML_DIR, "title_labels_train.csv")
 TEST_FILE = os.path.join(ML_DIR, "title_labels_test.csv")
+TITLE_CLASSIFIER_PATH = os.path.join(ML_DIR, "title_classifier.joblib")
 
 TARGETS = ("persona", "buying_role", "interest")
 LABELS = {
@@ -91,6 +92,13 @@ def load_labeled(path: str) -> List[Dict[str, str]]:
 
 @lru_cache(maxsize=1)
 def _local_models():
+    import joblib
+    if os.path.exists(TITLE_CLASSIFIER_PATH):
+        try:
+            return joblib.load(TITLE_CLASSIFIER_PATH)
+        except Exception:
+            pass
+
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import FeatureUnion, Pipeline
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -104,10 +112,14 @@ def _local_models():
                 ("words", TfidfVectorizer(analyzer="word", ngram_range=(1, 2), sublinear_tf=True)),
                 ("chars", TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 5), sublinear_tf=True)),
             ])),
-            ("clf", LogisticRegression(C=20.0, max_iter=5000, class_weight="balanced")),
+            ("clf", LogisticRegression(C=20.0, max_iter=2000, class_weight="balanced")),
         ])
         model.fit(x, [r[target] for r in rows])
         models[target] = model
+    try:
+        joblib.dump(models, TITLE_CLASSIFIER_PATH)
+    except Exception:
+        pass
     return models
 
 
@@ -133,7 +145,17 @@ def classify_titles_local(titles: List[str]) -> List[Dict[str, Any]]:
             key = normalize_title(titles[i])
             labels = {t: preds[t][key][0] for t in TARGETS}
             conf = round(sum(preds[t][key][1] for t in TARGETS) / len(TARGETS), 3)
-            out[i] = {**labels, "confidence": conf, "engine": "local"}
+            # QA Rule: If classifier confidence is below 0.6, set persona/role/interest to "Unknown"
+            if conf < 0.6:
+                out[i] = {
+                    "persona": "Unknown",
+                    "buying_role": "Unknown",
+                    "interest": "Unknown",
+                    "confidence": conf,
+                    "engine": "local"
+                }
+            else:
+                out[i] = {**labels, "confidence": conf, "engine": "local"}
     return out  # type: ignore[return-value]
 
 
@@ -223,7 +245,7 @@ def recommend_action(persona: str, buying_role: str, interest: str, band: Option
     if is_junk:
         return "Exclude: junk record"
     if buying_role == "Unknown" or persona == "Unknown":
-        return "Enrich: find a real job title before outreach"
+        return "Enrich: verify job title before outreach"
     topic = {"Demand Generation": "pipeline-growth", "Sales Productivity": "sales-efficiency",
              "Technical Integration": "integration/API", "Data & Analytics": "reporting & data-quality",
              "Business Strategy & ROI": "ROI"}.get(interest, "product")

@@ -2,8 +2,13 @@ import time
 import json
 import uuid
 import math
+import gc
+import logging
+import tracemalloc
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 def sanitize_for_json(obj: Any) -> Any:
     """Recursively replaces NaN and Inf floats with None for strict JSON compliance."""
@@ -91,6 +96,14 @@ def execute_smart_pipeline(
         own_session = True
     total_start = time.perf_counter()
     timings = {}
+    tracemalloc.start()
+
+    def _get_peak_mb() -> float:
+        try:
+            _, peak = tracemalloc.get_traced_memory()
+            return round(peak / (1024 * 1024), 2)
+        except Exception:
+            return 0.0
 
     # Initialize PipelineRun in DB
     existing_run = db.query(PipelineRun).filter(PipelineRun.run_id == run_id).first()
@@ -118,7 +131,10 @@ def execute_smart_pipeline(
         # ----------------------------------------------------
         t0 = time.perf_counter()
         raw_df, parse_meta = parse_csv_file(file_bytes, filename)
+        rows_in = len(raw_df)
         timings["parse_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["parse_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [parse]: %.2f ms, peak: %.2f MB", run_id, timings["parse_ms"], timings["parse_peak_mb"])
         update_run_progress(run_id, "map", 25, "running", db)
 
         # ----------------------------------------------------
@@ -127,9 +143,13 @@ def execute_smart_pipeline(
         t0 = time.perf_counter()
         mapped_df, mapping_summary = apply_schema_mapping(raw_df, mapping_override)
         timings["map_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["map_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [map]: %.2f ms, peak: %.2f MB", run_id, timings["map_ms"], timings["map_peak_mb"])
         # Data-quality "before" snapshot (the raw file itself is not stored)
         quality_before = quality_before_from_records(
             mapped_df.astype(object).where(mapped_df.notna(), None).to_dict("records"))
+        del raw_df
+        gc.collect()
         update_run_progress(run_id, "clean", 40, "running", db)
 
         # ----------------------------------------------------
@@ -140,6 +160,10 @@ def execute_smart_pipeline(
             mapped_df, run_id
         )
         timings["clean_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["clean_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [clean]: %.2f ms, peak: %.2f MB", run_id, timings["clean_ms"], timings["clean_peak_mb"])
+        del mapped_df
+        gc.collect()
         update_run_progress(run_id, "dedupe", 60, "running", db)
 
         # ----------------------------------------------------
@@ -150,6 +174,10 @@ def execute_smart_pipeline(
             valid_leads, run_id, threshold=85.0
         )
         timings["dedupe_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["dedupe_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [dedupe]: %.2f ms, peak: %.2f MB", run_id, timings["dedupe_ms"], timings["dedupe_peak_mb"])
+        del valid_leads
+        gc.collect()
         update_run_progress(run_id, "score", 75, "running", db)
 
         # ----------------------------------------------------
@@ -162,6 +190,8 @@ def execute_smart_pipeline(
             winner_leads, scoring_mode=scoring_mode, hubspot_rules=hs_rules
         )
         timings["score_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["score_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [score]: %.2f ms, peak: %.2f MB", run_id, timings["score_ms"], timings["score_peak_mb"])
         update_run_progress(run_id, "assign", 90, "running", db)
 
         # ----------------------------------------------------
@@ -172,6 +202,8 @@ def execute_smart_pipeline(
             scored_leads, db, run_id
         )
         timings["assign_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["assign_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [assign]: %.2f ms, peak: %.2f MB", run_id, timings["assign_ms"], timings["assign_peak_mb"])
 
         # ----------------------------------------------------
         # STAGE 7: AI CLASSIFICATION (local model; Claude can be run later from the AI Classification page)
@@ -179,6 +211,8 @@ def execute_smart_pipeline(
         t0 = time.perf_counter()
         label_lead_dicts(assigned_leads)
         timings["classify_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["classify_peak_mb"] = _get_peak_mb()
+        logger.info("Pipeline %s [classify]: %.2f ms, peak: %.2f MB", run_id, timings["classify_ms"], timings["classify_peak_mb"])
 
         # ----------------------------------------------------
         # BULK DATABASE TRANSACTIONS
@@ -308,13 +342,19 @@ def execute_smart_pipeline(
 
         db.commit()
         timings["db_bulk_persist_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+        timings["db_bulk_persist_peak_mb"] = _get_peak_mb()
 
         total_duration_ms = round((time.perf_counter() - total_start) * 1000, 2)
         timings["total_ms"] = total_duration_ms
+        timings["peak_memory_mb"] = _get_peak_mb()
+        try:
+            tracemalloc.stop()
+        except Exception:
+            pass
 
         # Summary statistics
         summary = {
-            "rows_in": len(raw_df),
+            "rows_in": rows_in,
             "rows_out": len(assigned_leads),
             "active_leads": len(assigned_leads) - clean_stats["junk_rows_count"],
             "duplicates_merged": dedup_stats["duplicates_merged"],
@@ -333,7 +373,7 @@ def execute_smart_pipeline(
             PipelineRun.status: "completed",
             PipelineRun.stage: "completed",
             PipelineRun.progress_percent: 100,
-            PipelineRun.row_count_in: len(raw_df),
+            PipelineRun.row_count_in: rows_in,
             PipelineRun.row_count_out: len(assigned_leads),
             PipelineRun.duplicates_merged: dedup_stats["duplicates_merged"],
             PipelineRun.junk_removed: clean_stats["junk_rows_count"],

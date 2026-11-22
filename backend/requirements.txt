@@ -16,5 +16,9 @@ httpx==0.28.1              # HubSpot sync (app/services/hubspot_sync.py); also u
 anthropic==2.10.0          # optional Claude classification engine (only called when ANTHROPIC_API_KEY is set)
 apscheduler==3.11.0        # background scheduler for HubSpot sync
 openpyxl==3.1.5            # Excel file ingestion (.xlsx support)
+# migrations and security
+alembic==1.20.1
+pyjwt==2.15.1
+slowapi==0.1.10
 # development / tests
 pytest==9.2.0

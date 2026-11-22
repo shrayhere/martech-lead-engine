@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, FileDown, Zap, Flame, Gauge, ClipboardCheck, Brain, Send } from 'lucide-react';
+import { Database, ShieldCheck, Cpu, UserCheck, Sparkles, FileDown, Zap, Flame, Gauge, ClipboardCheck, Brain, Send, LogOut } from 'lucide-react';
 
 export default function Header({
   activeTab,
@@ -10,6 +10,8 @@ export default function Header({
   selectedRunId,
   onSelectRun,
   extraRight,
+  isAuthenticated,
+  onLogout,
 }) {
   const tabs = [
     { id: 'smart',      label: 'Smart Upload',    icon: Zap,          badge: 'Auto' },
@@ -62,7 +64,7 @@ export default function Header({
             </div>
           </div>
 
-          {/* Right side: extra content + PDF button */}
+          {/* Right side: extra content + PDF button + Logout */}
           <div className="flex items-center gap-2 shrink-0">
             {extraRight}
             <a
@@ -75,6 +77,16 @@ export default function Header({
               <FileDown className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Report</span>
             </a>
+            {isAuthenticated && onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-700/60 transition-colors cursor-pointer"
+                title="Log out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
           </div>
         </div>
 

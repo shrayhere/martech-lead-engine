@@ -19,7 +19,7 @@ class LeadMLScorer:
         self._load_or_train_model()
 
     def _generate_synthetic_training_data(self, n_samples: int = 1500) -> pd.DataFrame:
-        """Generates realistic synthetic B2B training set with binary conversion labels."""
+        """Generates realistic synthetic B2B training set with binary conversion labels calibrated to ~10-15% conversion."""
         np.random.seed(42)
 
         company_sizes = np.random.choice([10, 50, 200, 800, 2500, 10000], size=n_samples)
@@ -28,12 +28,11 @@ class LeadMLScorer:
         engagement_scores = np.random.randint(0, 101, size=n_samples)
         days_since_activity = np.random.randint(1, 150, size=n_samples)
 
-        # Logit formula for conversion probability:
-        # High engagement, recent activity, C-level, large company, target industry -> higher P(convert)
+        # Calibrated logit formula: yields ~10% Hot conversion probability matching rule distribution
         logit = (
-            -2.5 
-            + 0.4 * np.log1p(company_sizes / 100.0)
-            + 0.8 * is_target_industry
+            -4.5
+            + 0.3 * np.log1p(company_sizes / 100.0)
+            + 0.6 * is_target_industry
             + 0.015 * seniority_levels
             + 0.035 * engagement_scores
             - 0.02 * days_since_activity
@@ -78,37 +77,41 @@ class LeadMLScorer:
 
     def extract_features(self, lead) -> list:
         from app.config import settings
+        from app.services.scoring_service import classify_seniority
 
-        # 1. Log company size
-        cs = lead.company_size or 50
-        cs_log = float(np.log1p(cs))
+        # 1. Log company size (validated > 0)
+        cs = getattr(lead, "company_size", None)
+        if cs is None or cs <= 0:
+            cs_log = 0.0
+        else:
+            cs_log = float(np.log1p(cs))
 
         # 2. Target industry binary
-        ind = lead.industry or ""
+        ind = getattr(lead, "industry", None) or ""
         is_target = 1 if any(t.lower() in ind.lower() for t in settings.TARGET_INDUSTRIES) else 0
 
-        # 3. Seniority score
-        title = (lead.job_title or "").lower()
-        if any(k in title for k in settings.C_LEVEL_KEYWORDS):
-            sen = 100
-        elif any(k in title for k in settings.VP_DIRECTOR_KEYWORDS):
-            sen = 80
-        elif any(k in title for k in settings.MANAGER_KEYWORDS):
-            sen = 50
-        else:
-            sen = 25
+        # 3. Seniority score (uses identical logic as rule-based scoring)
+        title = getattr(lead, "job_title", None) or ""
+        sen, _ = classify_seniority(title)
 
-        # 4. Engagement score
-        eng = float(lead.engagement_score or 0)
-
-        # 5. Days since last activity
-        act_str = lead.last_activity_date or "2026-01-01"
+        # 4. Engagement score (validated 0-100; missing/out-of-range = 0)
+        eng_raw = getattr(lead, "engagement_score", None)
         try:
-            act_date = datetime.strptime(act_str[:10], "%Y-%m-%d")
-            days = (datetime.now() - act_date).days
-            days = max(1, min(180, days))
+            eng = float(eng_raw) if eng_raw is not None and 0 <= float(eng_raw) <= 100 else 0.0
+        except (ValueError, TypeError):
+            eng = 0.0
+
+        # 5. Days since last activity (missing/future/invalid = 180 days)
+        act_str = getattr(lead, "last_activity_date", None)
+        try:
+            act_date = datetime.strptime(str(act_str)[:10], "%Y-%m-%d")
+            if act_date > datetime.now():
+                days = 180
+            else:
+                days = (datetime.now() - act_date).days
+                days = max(1, min(180, days))
         except Exception:
-            days = 60
+            days = 180
 
         return [cs_log, is_target, sen, eng, days]
 

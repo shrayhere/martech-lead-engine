@@ -1,0 +1,4 @@
+First Name,Last Name,Email,Company,Job Title,Engagement Score,Company Size,Last Activity Date
+Over,Score,over.score@test.com,Test Corp,Analyst,150,-50,2030-01-01
+Bad,Date,bad.date@test.com,Test Corp,Associate,-20,0,1999-13-45
+Normal,Lead,normal@test.com,Test Corp,Manager,75,100,2026-10-15

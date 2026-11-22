@@ -6,11 +6,21 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./martech.db")
 # Render/Heroku-style URLs use the "postgres://" scheme, which SQLAlchemy 2 does not accept.
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+elif DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-# For SQLite, connect_args={"check_same_thread": False} is required
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+if DATABASE_URL.startswith("postgresql"):
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=300
+    )
+else:
+    connect_args = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -81,4 +91,20 @@ def ensure_sqlite_columns(target_engine):
                 conn.commit()
             except Exception:
                 pass
+
+
+def run_migrations():
+    """Applies Alembic migrations up to head automatically at startup."""
+    if os.getenv("TESTING") == "1":
+        return
+    try:
+        from alembic.config import Config
+        from alembic import command
+        alembic_ini = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+        if os.path.exists(alembic_ini):
+            cfg = Config(alembic_ini)
+            command.upgrade(cfg, "head")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Alembic migration notice: %s", e)
 

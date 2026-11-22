@@ -3,7 +3,8 @@ import csv
 import pandas as pd
 from typing import Tuple, Dict, Any
 
-MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB limit
+MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB limit
+MAX_ROW_COUNT = 100_000  # 100,000 rows limit
 
 CANDIDATE_ENCODINGS = ["utf-8-sig", "utf-8", "latin-1", "cp1252", "iso-8859-1"]
 CANDIDATE_DELIMITERS = [",", ";", "\t", "|"]
@@ -77,7 +78,7 @@ def parse_csv_file(file_bytes: bytes, filename: str = "upload.csv") -> Tuple[pd.
     """
     if len(file_bytes) > MAX_FILE_SIZE_BYTES:
         raise ValueError(
-            f"File size exceeds 50 MB limit (received {len(file_bytes) / (1024*1024):.2f} MB)."
+            f"File size exceeds 20 MB limit (received {len(file_bytes) / (1024*1024):.2f} MB)."
         )
 
     lower_fn = filename.lower()
@@ -147,6 +148,11 @@ def parse_csv_file(file_bytes: bytes, filename: str = "upload.csv") -> Tuple[pd.
 
     if df.empty or len(df.columns) == 0:
         raise ValueError("Uploaded CSV file has no recognizable tabular rows or columns.")
+
+    if len(df) > MAX_ROW_COUNT:
+        raise ValueError(
+            f"Uploaded file exceeds the maximum limit of 100,000 rows (received {len(df):,} rows)."
+        )
 
     # Clean column names (strip quotes/whitespace, deduplicate unnamed/empty columns)
     cleaned_cols = []

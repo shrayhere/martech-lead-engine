@@ -2,6 +2,7 @@ import json
 import math
 import re
 from datetime import datetime
+from typing import Any, Optional, Tuple, Dict, List
 from sqlalchemy.orm import Session
 from app.models.schemas import CleanLead
 from app.config import settings
@@ -14,47 +15,101 @@ def _has_keyword(title: str, keywords) -> bool:
 
 
 def classify_seniority(job_title: str) -> tuple[int, str]:
-    """Classifies job title into seniority tier score and human label."""
-    if not job_title:
-        return 25, "Individual Contributor"
+    """
+    Classifies job title into seniority tier score and human label.
+    Rules:
+      - Low/Staff (25 pts): "Founder's Office", Intern, Student, Retired, Assistant, Specialist, Contributor
+      - C-Level/Founder (100 pts): Owner, Proprietor, Founder, Co-founder, MD, Managing Director, CXO (CEO, CTO, CFO, etc.), Partner, President
+      - VP/Director/Head (80 pts): Director, Head of X, "Head - X", GM, General Manager, Purchase Head, Procurement Head, Sourcing Head, VP, Vice President
+      - Manager/Sr Lead (50 pts): Manager, Purchase/Procurement/Sourcing Manager, Lead, Team Lead, Supervisor, Senior Manager
+    """
+    if not job_title or not str(job_title).strip():
+        return 25, "Staff / Contributor"
 
-    t = job_title.lower()
-    # "Vice President" is VP tier, not "President"
-    if _has_keyword(t.replace("vice president", "vp"), settings.C_LEVEL_KEYWORDS):
+    t = str(job_title).lower().strip()
+
+    # 1. Low / Staff overrides (explicit staff roles that contain words like 'founder' or 'office')
+    # "Founder's Office", "Intern", "Student", "Retired", "Assistant", "Junior"
+    low_roles = [
+        "founder's office", "founders office", "founder office", "intern", "internship",
+        "student", "retired", "trainee", "entry level", "assistant"
+    ]
+    if any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in low_roles):
+        return 25, "Staff / Contributor"
+
+    # 2. C-Level / Founder / High Seniority (100 pts)
+    # Owner, Proprietor, Founder, Co-founder, MD, Managing Director, CXO, Partner, President, SVP, EVP
+    c_level_patterns = [
+        r"\bowner\b", r"\bproprietor\b", r"\bfounder\b", r"\bco-founder\b", r"\bcofounder\b",
+        r"\bmanaging director\b", r"\bmd\b", r"\bcxo\b", r"\bceo\b", r"\bcto\b", r"\bcfo\b",
+        r"\bcio\b", r"\bcmo\b", r"\bcro\b", r"\bcoo\b", r"\bciso\b", r"\bchief executive\b",
+        r"\bchief\b", r"\bpartner\b", r"\bmanaging partner\b", r"\bsvp\b", r"\bevp\b"
+    ]
+    if "vice president" not in t and "vp" not in t.split() and any(re.search(pat, t) for pat in c_level_patterns):
         return 100, "C-Level / Founder"
-    elif _has_keyword(t, settings.VP_DIRECTOR_KEYWORDS):
+    if re.search(r"\bpresident\b", t) and not re.search(r"\bvice president\b|\bvp\b", t):
+        return 100, "C-Level / Founder"
+
+    # 3. VP / Director / Head of X / GM / Procurement Head (80 pts)
+    vp_dir_patterns = [
+        r"\bvice president\b", r"\bvp\b", r"\bavp\b",
+        r"\bdirector\b", r"\bhead of\b", r"\bhead\s*-\s*", r"\bgeneral manager\b", r"\bgm\b",
+        r"\bprocurement head\b", r"\bsourcing head\b", r"\bpurchase head\b",
+        r"\bhead\s+sourcing\b", r"\bhead\s+procurement\b"
+    ]
+    if any(re.search(pat, t) for pat in vp_dir_patterns):
         return 80, "VP / Director"
-    elif _has_keyword(t, settings.MANAGER_KEYWORDS):
+
+    # 4. Manager / Sr Lead / Purchase/Procurement/Sourcing Manager (50 pts)
+    mgr_patterns = [
+        r"\bmanager\b", r"\bpurchase manager\b", r"\bprocurement manager\b", r"\bsourcing manager\b",
+        r"\blead\b", r"\bteam lead\b", r"\bsupervisor\b", r"\bsenior manager\b", r"\bsr manager\b",
+        r"\bsenior\b", r"\bsr\.?\b"
+    ]
+    if any(re.search(pat, t) for pat in mgr_patterns):
         return 50, "Manager / Sr Lead"
+
     return 25, "Staff / Contributor"
 
-def score_company_size(size: int) -> tuple[int, str]:
+
+def score_company_size(size: Any) -> tuple[int, str]:
     """Maps company size integer to 0-100 firmographic score and size bucket label."""
-    if not size or size <= 0:
-        return 35, "< 50 employees"
-    if size >= 5000:
+    if size is None:
+        return 0, "Missing"
+    try:
+        s = int(size)
+    except (ValueError, TypeError):
+        return 0, "Invalid"
+
+    if s <= 0:
+        return 0, "Invalid (<= 0)"
+    if s >= 5000:
         return 100, "Enterprise (5,000+)"
-    elif size >= 1000:
+    elif s >= 1000:
         return 85, "Upper Mid-Market (1,000-4,999)"
-    elif size >= 100:
+    elif s >= 100:
         return 65, "Mid-Market (100-999)"
-    elif size >= 50:
+    elif s >= 50:
         return 50, "Small Business (50-99)"
     return 35, "Micro Business (< 50)"
 
-def score_recency(activity_date_str: str) -> tuple[float, int]:
-    """Applies exponential decay scoring to recency of last activity date."""
-    if not activity_date_str:
-        return 30.0, 90
+
+def score_recency(activity_date_str: Any) -> tuple[float, int]:
+    """Applies exponential decay scoring to recency of last activity date. Invalid/missing/future date = 0.0 pts."""
+    if not activity_date_str or not str(activity_date_str).strip():
+        return 0.0, 180
 
     try:
-        act_date = datetime.strptime(activity_date_str[:10], "%Y-%m-%d")
+        act_date = datetime.strptime(str(activity_date_str)[:10], "%Y-%m-%d")
+        # Reject future dates
+        if act_date > datetime.now():
+            return 0.0, 180
         days = (datetime.now() - act_date).days
         days = max(0, min(180, days))
     except Exception:
-        return 30.0, 90
+        # Impossible dates like 1999-13-45 score lowest recency
+        return 0.0, 180
 
-    # Exponential decay formula: score = 100 * exp(-0.02 * days)
     decay_score = 100.0 * math.exp(-0.02 * days)
     return round(decay_score, 1), days
 

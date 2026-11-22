@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from typing import List, Dict, Any, Tuple
 from app.config import settings
@@ -11,7 +12,12 @@ GENERIC_DOMAINS = {
 def get_blocking_keys(lead: Dict[str, Any]) -> List[str]:
     """
     Computes blocking keys to partition candidates into small buckets for high-speed fuzzy comparison.
-    Combines domain/company prefix with first-name initial to avoid oversized buckets.
+    Uses fine-grained blocking:
+      1. Domain + first-name initial (df:{domain}:{fn[0]})
+      2. Company prefix + first-name initial (cf:{comp[:4]}:{fn[0]})
+      3. Phone suffix last 4 digits (ph4:{phone[-4:]})
+      4. Last name prefix + first-name initial (nf:{ln[:4]}:{fn[0]})
+    Eliminates broad fallbacks (like state) that caused catastrophic O(N^2) comparison explosions.
     """
     keys = []
     email = lead.get("email") or ""
@@ -28,7 +34,6 @@ def get_blocking_keys(lead: Dict[str, Any]) -> List[str]:
 
     comp = (lead.get("company") or "").lower().strip()
     if comp:
-        # First 4 alphanumeric chars of company
         comp_prefix = "".join(c for c in comp if c.isalnum())[:4]
         if comp_prefix:
             if fn_char:
@@ -36,10 +41,14 @@ def get_blocking_keys(lead: Dict[str, Any]) -> List[str]:
             else:
                 keys.append(f"comp:{comp_prefix}")
 
-    # Fallback bucket if no domain or company
-    if not keys:
-        state = (lead.get("state") or "").upper().strip()
-        keys.append(f"st:{state or 'UNK'}")
+    phone_raw = re.sub(r"\D", "", str(lead.get("phone") or ""))
+    if len(phone_raw) >= 4:
+        keys.append(f"ph4:{phone_raw[-4:]}")
+
+    ln = (lead.get("last_name") or "").strip().lower()
+    ln_prefix = "".join(c for c in ln if c.isalnum())[:4]
+    if ln_prefix and fn_char:
+        keys.append(f"nf:{ln_prefix}:{fn_char}")
 
     return keys
 
@@ -135,8 +144,8 @@ def fast_deduplicate_leads(
         if n_in_bucket <= 1:
             continue
 
-        # Cap bucket comparison at 300 to guard against catastrophic O(N^2) outliers
-        target_indices = indices[:300] if n_in_bucket > 300 else indices
+        # Cap bucket comparison at 100 to guard against catastrophic O(N^2) outliers
+        target_indices = indices[:100] if n_in_bucket > 100 else indices
         n_eval = len(target_indices)
 
         for i_pos in range(n_eval):

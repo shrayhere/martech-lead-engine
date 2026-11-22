@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.schemas import PipelineRun
 from app.services.pipeline_service import execute_smart_pipeline, FILE_CACHE, RUN_PROGRESS
+from app.utils.security import sanitize_csv_cell
 
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
 
@@ -61,7 +62,10 @@ async def run_pipeline(
 
     current_run_id = run_id or str(uuid.uuid4())
 
-    if async_mode:
+    is_large_file = file_bytes is not None and file_bytes.count(b"\n") > 5000
+    should_run_bg = async_mode or is_large_file
+
+    if should_run_bg:
         background_tasks.add_task(
             execute_smart_pipeline,
             file_bytes=file_bytes,
@@ -75,7 +79,7 @@ async def run_pipeline(
             "run_id": current_run_id,
             "filename": filename,
             "status": "running",
-            "message": "Pipeline initiated in background task."
+            "message": f"Pipeline running in background for large file (>5,000 rows). Poll /api/pipeline/status/{current_run_id}" if is_large_file else "Pipeline initiated in background task."
         }
     else:
         try:
@@ -167,7 +171,8 @@ def get_rejected_rows(run_id: str, format: str = "json", db: Session = Depends(g
         writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rejected_list:
-            writer.writerow(row)
+            sanitized_row = {k: sanitize_csv_cell(v) for k, v in row.items()}
+            writer.writerow(sanitized_row)
         return Response(
             content=output.getvalue(),
             media_type="text/csv",

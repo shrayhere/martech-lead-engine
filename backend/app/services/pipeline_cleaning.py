@@ -47,42 +47,53 @@ INDUSTRY_MAP = {
 def parse_company_size_value(val: Any) -> Optional[int]:
     """
     Parses messy company size strings like '50-200', '1k+', '~500', '<50', '10,000' into numeric integer.
+    Validates company size > 0. Out-of-range/negative values (e.g. -50) return None (treated as missing).
     """
     if pd.isnull(val) or val is None:
-        return 50
+        return None
 
     s = str(val).strip().lower().replace(",", "").replace("employees", "").replace("people", "")
     if not s or s in {"n/a", "none", "unknown", "null", "nan"}:
-        return 50
+        return None
+
+    # Detect negative values explicitly
+    if s.startswith("-"):
+        return None
 
     # Range like '50-200'
     m_range = re.match(r"^(\d+)\s*[-–—to]\s*(\d+)$", s)
     if m_range:
         low, high = int(m_range.group(1)), int(m_range.group(2))
-        return int((low + high) / 2)
+        avg = int((low + high) / 2)
+        return avg if avg > 0 else None
 
     # Patterns like '1k+', '5k'
     m_k = re.match(r"^[~<>]?\s*(\d+(?:\.\d+)?)\s*k\+?$", s)
     if m_k:
-        return int(float(m_k.group(1)) * 1000)
+        res = int(float(m_k.group(1)) * 1000)
+        return res if res > 0 else None
 
     # '~500', '500+', '>500'
     m_approx = re.match(r"^[~<>+]?\s*(\d+)\s*\+?$", s)
     if m_approx:
-        return int(m_approx.group(1))
+        res = int(m_approx.group(1))
+        return res if res > 0 else None
 
     # Strip any other digits
     digits = re.sub(r"[^\d]", "", s)
     if digits:
         try:
-            return int(digits)
+            res = int(digits)
+            return res if res > 0 else None
         except Exception:
             pass
-    return 50
+    return None
 
 def parse_iso_date(val: Any) -> Optional[str]:
     """
     Standardizes arbitrary date formats into ISO-8601 YYYY-MM-DD.
+    Validates calendar dates (rejecting impossible dates like 1999-13-45)
+    and rejects future dates. Invalid or future dates return None.
     """
     if pd.isnull(val) or val is None:
         return None
@@ -91,27 +102,40 @@ def parse_iso_date(val: Any) -> Optional[str]:
     if not s or s.lower() in {"n/a", "none", "unknown", "null", "nan"}:
         return None
 
-    # Already YYYY-MM-DD
+    dt = None
+    # Already YYYY-MM-DD - validate real calendar date
     if re.match(r"^\d{4}-\d{2}-\d{2}", s):
-        return s[:10]
-
-    # Try common date formats
-    for fmt in ("%Y/%m/%d", "%m/%d/%Y", "%d/%m/%Y", "%m-%d-%Y", "%d-%m-%Y", "%b %d, %Y", "%B %d, %Y"):
         try:
-            dt = datetime.strptime(s[:10], fmt)
-            return dt.strftime("%Y-%m-%d")
+            dt = datetime.strptime(s[:10], "%Y-%m-%d")
+        except ValueError:
+            return None  # Impossible date e.g. 1999-13-45
+
+    if dt is None:
+        # Try common date formats
+        for fmt in ("%Y/%m/%d", "%m/%d/%Y", "%d/%m/%Y", "%m-%d-%Y", "%d-%m-%Y", "%b %d, %Y", "%B %d, %Y"):
+            try:
+                dt = datetime.strptime(s[:10], fmt)
+                break
+            except Exception:
+                pass
+
+    if dt is None:
+        # Use pandas to_datetime fallback
+        try:
+            dt_val = pd.to_datetime(s, errors="coerce")
+            if pd.notnull(dt_val):
+                dt = dt_val.to_pydatetime()
         except Exception:
             pass
 
-    # Use pandas to_datetime fallback
-    try:
-        dt_val = pd.to_datetime(s, errors="coerce")
-        if pd.notnull(dt_val):
-            return dt_val.strftime("%Y-%m-%d")
-    except Exception:
-        pass
+    if dt is None:
+        return None
 
-    return None
+    # Reject future dates
+    if dt > datetime.now():
+        return None
+
+    return dt.strftime("%Y-%m-%d")
 
 def standardize_industry(val: Any) -> str:
     """Standardizes industry name against known B2B domains."""
@@ -244,7 +268,7 @@ def clean_and_normalize_records(
 
         # 6. Dates (Last Activity & Created)
         raw_date = row.get("last_activity_date")
-        act_date = parse_iso_date(raw_date) or today_str
+        act_date = parse_iso_date(raw_date)
         if raw_date and act_date and str(raw_date).strip() != act_date:
             cleaning_logs.append({
                 "run_id": run_id, "row_index": row_num, "field_name": "last_activity_date",
@@ -261,7 +285,7 @@ def clean_and_normalize_records(
         if raw_cs and str(raw_cs).strip() != str(comp_size):
             cleaning_logs.append({
                 "run_id": run_id, "row_index": row_num, "field_name": "company_size",
-                "old_value": str(raw_cs), "new_value": str(comp_size), "reason": "Parsed numeric employee band"
+                "old_value": str(raw_cs), "new_value": str(comp_size) if comp_size else "None", "reason": "Parsed numeric employee band"
             })
             fields_fixed_count += 1
 
@@ -275,11 +299,15 @@ def clean_and_normalize_records(
             })
             fields_fixed_count += 1
 
-        # 9. Engagement Score
+        # 9. Engagement Score (0-100 valid range)
         raw_eng = row.get("engagement_score")
         if pd.notnull(raw_eng) and str(raw_eng).strip() not in {"", "None", "nan"}:
             try:
-                eng_score = float(str(raw_eng).replace("%", "").strip())
+                eng_val = float(str(raw_eng).replace("%", "").strip())
+                if 0.0 <= eng_val <= 100.0:
+                    eng_score = eng_val
+                else:
+                    eng_score = None  # Out-of-range (<0 or >100) treated as missing
             except Exception:
                 eng_score = None
         else:
