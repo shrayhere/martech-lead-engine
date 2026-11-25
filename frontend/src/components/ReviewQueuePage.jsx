@@ -54,13 +54,13 @@ export default function ReviewQueuePage({ runs = [], defaultRunId = '' }) {
   const s = data.summary;
 
   return (
-    <div className="space-y-6">
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <ClipboardCheck className="w-5 h-5 text-indigo-400" /> Needs Review
+          <h2 className="text-2xl font-normal text-[#f3f6f2] flex items-center gap-2">
+            <span className="font-display text-[#e6ecc9]">Review</span> queue &amp; duplicates
           </h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-[#c9d6d3] mt-1">
             Borderline duplicate pairs (80–90% similarity) are not merged automatically, and junk rows are not dropped
             silently: a person decides here.
           </p>
@@ -68,22 +68,22 @@ export default function ReviewQueuePage({ runs = [], defaultRunId = '' }) {
         <div className="flex items-center gap-3">
           <SourceSelect runs={runs} value={runId} onChange={setRunId} />
           <select value={status} onChange={(e) => setStatus(e.target.value)}
-            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-xs">
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="all">All</option>
+            className="bg-black/30 border border-white/15 rounded-full px-3 py-1.5 text-[#f3f6f2] text-xs focus:outline-none">
+            <option value="pending" className="bg-[#14282b]">Pending</option>
+            <option value="approved" className="bg-[#14282b]">Approved</option>
+            <option value="rejected" className="bg-[#14282b]">Rejected</option>
+            <option value="all" className="bg-[#14282b]">All</option>
           </select>
         </div>
       </div>
 
       {s && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[['Pending merges', s.merge_pending, 'text-indigo-300'], ['Pending junk', s.junk_pending, 'text-amber-300'],
-            ['Approved', s.approved, 'text-emerald-300'], ['Rejected', s.rejected, 'text-rose-300']].map(([l, v, c]) => (
-            <div key={l} className="glass-panel p-4 rounded-2xl">
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">{l}</span>
-              <div className={`text-2xl font-extrabold ${c}`}>{v}</div>
+          {[['Pending merges', s.merge_pending, 'text-[#e6ecc9]'], ['Pending junk', s.junk_pending, 'text-[#e6c98a]'],
+            ['Approved', s.approved, 'text-[#9fb8b5]'], ['Rejected', s.rejected, 'text-[#e8a48a]']].map(([l, v, c]) => (
+            <div key={l} className="glass-panel p-4 rounded-2xl border border-white/10">
+              <span className="text-[11px] text-[#8fa4a1] uppercase tracking-wider font-semibold">{l}</span>
+              <div className={`text-2xl font-light tabular-nums mt-0.5 ${c}`}>{v}</div>
             </div>
           ))}
         </div>

@@ -165,9 +165,12 @@ export default function LoginModal({ isOpen, onLoginSuccess }) {
                 </CreamButton>
               </form>
 
-              <div className="mt-8 pt-6 border-t border-white/10 text-center">
+              <div className="mt-8 pt-6 border-t border-white/10 text-center space-y-1">
                 <p className="text-[11px] text-[#8fa4a1]">
                   Protected workspace · sessions expire after 7 days
+                </p>
+                <p className="text-[11px] text-[#c9d6d3]/70">
+                  Default access password: <code className="px-1.5 py-0.5 rounded bg-black/40 text-[#e6ecc9] font-mono font-medium">martech2026</code>
                 </p>
               </div>
             </div>

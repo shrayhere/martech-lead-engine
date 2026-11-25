@@ -194,20 +194,21 @@ export default function SmartUploadPage({
     Object.values(pipelineResult?.column_mapping?.canonical_to_source || {}).filter(Boolean))];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-fade-in-up">
       {/* Top Value Banner */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-indigo-500/20 shadow-xl shadow-indigo-500/5">
+      <div className="glass-panel p-6 sm:p-7 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-white/10 shadow-xl">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
-              One-Shot Smart Upload
+            <span className="px-3 py-1 rounded-full bg-[#e6ecc9]/15 text-[#e6ecc9] text-xs font-medium border border-[#e6ecc9]/30">
+              One-Shot Smart Ingestion
             </span>
-            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5" /> Fast vectorized execution
+            <span className="text-xs text-[#9fb8b5] font-light flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5 text-[#e6ecc9]" /> Fast vectorized execution
             </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-white mt-1">
-            Autonomous Lead Ingestion & Qualification Pipeline
+          <h1 className="text-2xl sm:text-3xl font-normal text-[#f3f6f2] mt-1.5">
+            <span className="font-display text-[#e6ecc9] mr-2">Autonomous</span>
+            lead ingestion &amp; pipeline
           </h1>
           <p className="text-sm text-slate-400 mt-1">
             Upload ANY CSV with unknown headers or messy rows. Ingestion, 3-tier schema mapping, E.164 normalization, RapidFuzz deduplication, AI scoring & rep assignment run in seconds.

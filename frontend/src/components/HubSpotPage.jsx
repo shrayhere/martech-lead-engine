@@ -228,28 +228,28 @@ export default function HubSpotPage({ runs = [] }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-fade-in-up">
       {/* Header card */}
-      <div className="bg-[#121826] border border-[#1F2937] rounded-xl p-5">
+      <div className="glass-panel rounded-2xl p-6 border border-white/10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Database className="w-5 h-5 text-[#6366F1]" /> HubSpot Integration
+            <h2 className="text-2xl font-normal text-[#f3f6f2] flex items-center gap-2">
+              <span className="font-display text-[#e6ecc9]">HubSpot</span> CRM integration
             </h2>
-            <p className="text-sm text-[#9CA3AF] mt-1">
+            <p className="text-xs text-[#c9d6d3] mt-1">
               Import workflows from HubSpot to drive lead scoring rules, then push scored leads back.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm ${tokenOk ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-800 border-slate-700 text-[#9CA3AF]'}`}>
-              <KeyRound className="w-4 h-4" />
-              {tokenOk ? 'Token connected' : 'No token'}
+            <div className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium ${tokenOk ? 'bg-[#e6ecc9]/15 border-[#e6ecc9]/30 text-[#e6ecc9]' : 'bg-white/10 border-white/15 text-[#8fa4a1]'}`}>
+              <KeyRound className="w-3.5 h-3.5" />
+              {tokenOk ? 'Token connected' : 'No token configured'}
             </div>
             <button
               onClick={load}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-[#1F2937] rounded-lg text-sm text-[#E5E7EB] transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/10 hover:bg-white/15 border border-white/15 rounded-full text-xs text-[#f3f6f2] transition-colors cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4" /> Refresh
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh
             </button>
           </div>
         </div>

@@ -1,10 +1,17 @@
 # MarTech Data Quality & Lead Scoring Engine
 
+[![Live Frontend (Vercel)](https://img.shields.io/badge/Live%20Dashboard-Vercel-black?logo=vercel)](https://frontend-pied-seven-l2r7e4glw8.vercel.app)
+[![Live Backend API (Render)](https://img.shields.io/badge/Live%20API-Render-46E3B7?logo=render)](https://martech-lead-engine-api.onrender.com/api/health)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-shrayhere%2Fmartech--lead--engine-indigo?logo=github)](https://github.com/shrayhere/martech-lead-engine)
 [![Python](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Pandas%20%7C%20Scikit--Learn-blue)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind%20CSS%20%7C%20Recharts-cyan)](https://reactjs.org/)
+[![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind%20v4%20%7C%20Vite-cyan)](https://reactjs.org/)
 
-An enterprise-grade B2B Marketing & Sales Data Quality, Fuzzy Deduplication, Lead Scoring, and Automated Sales Rep Assignment Engine. Designed to mirror marketing automation platforms (like Salesforce Data Governance & Marketo Revenue Stage models).
+> **Live Production Dashboard:** [https://frontend-pied-seven-l2r7e4glw8.vercel.app](https://frontend-pied-seven-l2r7e4glw8.vercel.app)  
+> **Workspace Access Password:** `martech2026`
+
+An enterprise-grade autonomous B2B Marketing & Sales Data Quality, Fuzzy Deduplication, Explainable Lead Scoring, and Sales Rep Assignment Engine. Designed to mirror marketing automation platforms (Salesforce Data Governance, Marketo Revenue Stage models, and HubSpot CRM).
+
+Redesigned in an atmospheric **Misty Teal Editorial Glass** aesthetic featuring high-contrast editorial serif typography (`Instrument Serif`), clean tabular figures, frosted glass cards, and calm dark teal surfaces for high-density data views.
 
 ---
 

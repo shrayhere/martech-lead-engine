@@ -51,13 +51,13 @@ export default function ClassificationPage({ runs = [], defaultRunId = '' }) {
   const classified = leads.filter((l) => l.persona);
 
   return (
-    <div className="space-y-6">
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Brain className="w-5 h-5 text-fuchsia-400" /> AI Classification
+          <h2 className="text-2xl font-normal text-[#f3f6f2] flex items-center gap-2">
+            <span className="font-display text-[#e6ecc9]">AI persona</span> &amp; buying roles
           </h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-[#c9d6d3] mt-1">
             Labels persona, buying role and interest from the job title, then business rules pick the next action
             using the role and the score band.
           </p>

@@ -82,13 +82,13 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in-up">
       {/* Page Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <SettingsIcon className="w-5 h-5 text-indigo-400" /> Pipeline Settings &amp; Configuration
+      <div className="glass-panel p-6 rounded-2xl border border-white/10">
+        <h2 className="text-2xl font-normal text-[#f3f6f2] flex items-center gap-2">
+          <span className="font-display text-[#e6ecc9]">System</span> settings &amp; weights
         </h2>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-xs text-[#c9d6d3] mt-1">
           Configure default localization standards, scoring signal weights, and sales team assignment routing.
         </p>
       </div>
@@ -186,9 +186,9 @@ export default function SettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving || totalWeight !== 100}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors cursor-pointer"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-xs text-[#14282b] bg-[#e6ecc9] hover:bg-[#dce3b8] disabled:opacity-50 transition-all shadow-md cursor-pointer"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? <Loader2 className="w-4 h-4 animate-spin text-[#14282b]" /> : <Save className="w-4 h-4" />}
           <span>{saving ? 'Saving Preferences…' : 'Save Preferences'}</span>
         </button>
       </div>
