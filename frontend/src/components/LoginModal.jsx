@@ -27,9 +27,6 @@ export default function LoginModal({ isOpen, onLoginSuccess }) {
       if (!res.ok) {
         throw new Error(data.detail || 'Authentication failed');
       }
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token);
-      }
       setPassword('');
       onLoginSuccess();
     } catch (err) {

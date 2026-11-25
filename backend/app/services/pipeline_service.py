@@ -152,12 +152,18 @@ def execute_smart_pipeline(
         gc.collect()
         update_run_progress(run_id, "clean", 40, "running", db)
 
+        # Fetch stored settings (default country + scoring weights) once
+        from app.routes.settings import get_current_settings
+        sys_settings = get_current_settings(db) if db else {}
+        default_country = sys_settings.get("country", "India")
+        custom_weights = sys_settings.get("weights") if sys_settings else None
+
         # ----------------------------------------------------
         # STAGE 3: CLEANING & NORMALIZATION
         # ----------------------------------------------------
         t0 = time.perf_counter()
         valid_leads, rejected_rows, cleaning_logs, clean_stats = clean_and_normalize_records(
-            mapped_df, run_id
+            mapped_df, run_id, default_country=default_country
         )
         timings["clean_ms"] = round((time.perf_counter() - t0) * 1000, 2)
         timings["clean_peak_mb"] = _get_peak_mb()
@@ -186,8 +192,9 @@ def execute_smart_pipeline(
         t0 = time.perf_counter()
         from app.services.hubspot_import import get_active_rules
         hs_rules = get_active_rules(db) if db else []
+
         scored_leads, score_summary = smart_score_leads(
-            winner_leads, scoring_mode=scoring_mode, hubspot_rules=hs_rules
+            winner_leads, scoring_mode=scoring_mode, hubspot_rules=hs_rules, custom_weights=custom_weights
         )
         timings["score_ms"] = round((time.perf_counter() - t0) * 1000, 2)
         timings["score_peak_mb"] = _get_peak_mb()

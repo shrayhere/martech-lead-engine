@@ -222,3 +222,12 @@ class HubSpotSyncLog(Base):
     error_message = Column(Text, nullable=True)
     triggered_by = Column(String, nullable=True)       # "manual" | "scheduled" | "webhook"
     synced_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SystemSetting(Base):
+    """System-wide configuration settings (default country, scoring weights)."""
+    __tablename__ = "system_settings"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(Text, nullable=False)  # JSON or string representation
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

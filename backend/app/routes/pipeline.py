@@ -14,7 +14,7 @@ from app.utils.security import sanitize_csv_cell
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
 
 @router.post("/demo")
-async def run_demo_pipeline(
+def run_demo_pipeline(
     db: Session = Depends(get_db)
 ):
     """
@@ -100,7 +100,7 @@ async def check_cross_upload_duplicates(
         return {"duplicate_count": 0, "message": str(e)}
 
 @router.post("/run")
-async def run_pipeline(
+def run_pipeline(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     run_id: Optional[str] = Form(None),
@@ -110,15 +110,8 @@ async def run_pipeline(
     db: Session = Depends(get_db)
 ):
     """
-    Executes the one-shot smart upload pipeline:
-    - Parses CSV (with encoding/delimiter autodetection).
-    - Infers schema mapping using 3-tier matching.
-    - Cleans & normalizes records and logs changes.
-    - Deduplicates using exact hash lookups + RapidFuzz 85% blocking buckets.
-    - Scores leads with graceful degradation.
-    - Assigns reps via 4-tier routing rules.
-    - If async_mode is true, runs in background and returns initial run_id.
-    - If file is omitted, uses cached file bytes from a previous run_id with new mapping_override.
+    Executes the one-shot smart upload pipeline synchronously in a worker threadpool
+    so it never blocks FastAPI's async event loop.
     """
     parsed_override = None
     if mapping_override:
@@ -133,7 +126,7 @@ async def run_pipeline(
 
     if file is not None:
         filename = file.filename
-        file_bytes = await file.read()
+        file_bytes = file.file.read()
     elif run_id and run_id in FILE_CACHE:
         file_bytes = FILE_CACHE[run_id]
         # Look up existing run's filename

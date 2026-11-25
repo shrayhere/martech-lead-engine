@@ -144,13 +144,9 @@ def fast_deduplicate_leads(
     composite_strings = [composite_string(l) for l in clean_candidates]
     review_candidates: List[Tuple[int, int, float, str]] = []
 
-    for b_key, indices in bucket_map.items():
-        n_in_bucket = len(indices)
-        if n_in_bucket <= 1:
-            continue
-        target_indices = indices[:100] if n_in_bucket > 100 else indices
+    # Helper function to evaluate candidate pairs within a block/sub-block
+    def evaluate_block_indices(target_indices: List[int]):
         n_eval = len(target_indices)
-
         for i_pos in range(n_eval):
             i_idx = target_indices[i_pos]
             for j_pos in range(i_pos + 1, n_eval):
@@ -165,6 +161,26 @@ def fast_deduplicate_leads(
                     edges[(min(i_idx, j_idx), max(i_idx, j_idx))] = (sim, f'Fuzzy match: {reason}')
                 elif decision == 'review':
                     review_candidates.append((i_idx, j_idx, sim, reason))
+
+    for b_key, indices in bucket_map.items():
+        n_in_bucket = len(indices)
+        if n_in_bucket <= 1:
+            continue
+
+        if n_in_bucket > 100:
+            # Sub-block by first 2 letters of last name (or first name fallback)
+            sub_buckets: Dict[str, List[int]] = defaultdict(list)
+            for idx in indices:
+                cand = clean_candidates[idx]
+                ln = (cand.get("last_name") or cand.get("first_name") or "").strip().lower()
+                sub_key = "".join(c for c in ln if c.isalnum())[:2] or "_"
+                sub_buckets[sub_key].append(idx)
+
+            for sub_k, sub_indices in sub_buckets.items():
+                if len(sub_indices) > 1:
+                    evaluate_block_indices(sub_indices)
+        else:
+            evaluate_block_indices(indices)
 
     clusters: Dict[int, List[int]] = defaultdict(list)
     for idx in range(len(clean_candidates)):

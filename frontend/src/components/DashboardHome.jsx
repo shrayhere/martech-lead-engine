@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Flame, 
@@ -33,14 +33,37 @@ export default function DashboardHome({
   const duplicatesMerged = latestRun?.duplicates_merged || 0;
   const fieldsFixed = latestRun?.fields_fixed || 0;
   // Estimate ~20s saved per row manually reviewed/cleaned
-  const estimatedHoursSaved = Math.max(1, Math.round(((totalLeads + duplicatesMerged) * 20) / 3600));
+  const estimatedHoursSaved = totalLeads > 0 
+    ? Math.max(1, Math.round(((totalLeads + duplicatesMerged) * 20) / 3600))
+    : 0;
+
+  // Real Data Quality Report
+  const [qualityReport, setQualityReport] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const url = latestRun?.run_id ? `/api/quality/report?run_id=${latestRun.run_id}` : '/api/quality/report';
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (mounted && d) setQualityReport(d);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [latestRun?.run_id]);
+
+  const afterScore = qualityReport?.after?.score;
+  const beforeScore = qualityReport?.before?.score;
+  const dqImprovement = (afterScore !== undefined && beforeScore !== undefined) 
+    ? (afterScore - beforeScore) 
+    : null;
 
   const kpis = [
     {
       title: 'Total Active Leads',
       value: totalLeads > 0 ? totalLeads.toLocaleString() : '—',
       icon: Users,
-      trend: '+100% clean',
+      trend: totalLeads > 0 ? `${totalLeads.toLocaleString()} records` : null,
       desc: 'Validated B2B records',
       accent: 'from-blue-500/20 to-indigo-500/10 text-blue-400 border-blue-500/30'
     },
@@ -48,31 +71,31 @@ export default function DashboardHome({
       title: 'Hot Leads Routed',
       value: hotLeads > 0 ? hotLeads.toLocaleString() : '—',
       icon: Flame,
-      trend: 'Ready to convert',
+      trend: hotLeads > 0 && totalLeads > 0 ? `${Math.round((hotLeads / totalLeads) * 100)}% of total` : null,
       desc: 'Score ≥ 80 to sales reps',
       accent: 'from-amber-500/20 to-orange-500/10 text-amber-400 border-amber-500/30'
     },
     {
       title: 'Data Quality Health',
-      value: totalLeads > 0 ? '98.4%' : '—',
+      value: afterScore !== undefined ? `${afterScore}%` : '—',
       icon: ShieldCheck,
-      trend: '+42% vs uploaded',
+      trend: dqImprovement !== null ? `${dqImprovement > 0 ? '+' : ''}${dqImprovement}% vs uploaded` : null,
       desc: 'Pass rate on 8 core checks',
       accent: 'from-emerald-500/20 to-teal-500/10 text-emerald-400 border-emerald-500/30'
     },
     {
       title: 'Duplicates Merged',
-      value: duplicatesMerged > 0 ? duplicatesMerged.toLocaleString() : '—',
+      value: duplicatesMerged > 0 ? duplicatesMerged.toLocaleString() : (latestRun ? '0' : '—'),
       icon: Copy,
-      trend: 'Zero CRM collisions',
+      trend: duplicatesMerged > 0 ? `${duplicatesMerged} resolved` : null,
       desc: 'Smart blocking match',
       accent: 'from-purple-500/20 to-indigo-500/10 text-purple-400 border-purple-500/30'
     },
     {
       title: 'Manual Work Saved',
-      value: `${estimatedHoursSaved} hrs`,
+      value: estimatedHoursSaved > 0 ? `${estimatedHoursSaved} hrs` : '—',
       icon: Clock,
-      trend: '~20s per record',
+      trend: estimatedHoursSaved > 0 ? '~20s per record' : null,
       desc: 'Autonomous processing',
       accent: 'from-teal-500/20 to-emerald-500/10 text-teal-400 border-teal-500/30'
     }
@@ -144,7 +167,11 @@ export default function DashboardHome({
                 <span className="text-2xl font-black text-white tracking-tight">{kpi.value}</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[11px]">
-                <span className="text-emerald-400 font-semibold">{kpi.trend}</span>
+                {kpi.trend ? (
+                  <span className="text-emerald-400 font-semibold">{kpi.trend}</span>
+                ) : (
+                  <span className="text-slate-500 font-normal">—</span>
+                )}
                 <span className="text-slate-400 truncate">{kpi.desc}</span>
               </div>
             </div>

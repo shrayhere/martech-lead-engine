@@ -15,12 +15,13 @@ DEFAULT_WEIGHTS = {
     "recency": settings.WEIGHT_RECENCY                   # 0.25
 }
 
-def determine_signal_availability(leads: List[Dict[str, Any]]) -> Dict[str, bool]:
+def determine_signal_availability(leads: List[Dict[str, Any]], base_weights: Dict[str, float] = None) -> Dict[str, bool]:
     """
     Checks if behavioral and firmographic signals have any valid non-default data across the leads batch.
     """
+    target_weights = base_weights or DEFAULT_WEIGHTS
     if not leads:
-        return {k: True for k in DEFAULT_WEIGHTS}
+        return {k: True for k in target_weights}
 
     has_eng = any(l.get("engagement_score") is not None for l in leads)
     has_rec = any(l.get("last_activity_date") is not None and str(l.get("last_activity_date")).strip() != "" for l in leads)
@@ -36,20 +37,21 @@ def determine_signal_availability(leads: List[Dict[str, Any]]) -> Dict[str, bool
         "recency": has_rec
     }
 
-def calculate_renormalized_weights(signal_availability: Dict[str, bool]) -> Tuple[Dict[str, float], List[str]]:
+def calculate_renormalized_weights(signal_availability: Dict[str, bool], base_weights: Dict[str, float] = None) -> Tuple[Dict[str, float], List[str]]:
     """
     Degrades gracefully: re-normalizes weights across available signals so total weight = 1.0.
     """
-    available_sum = sum(DEFAULT_WEIGHTS[sig] for sig, is_avail in signal_availability.items() if is_avail)
+    target_weights = base_weights or DEFAULT_WEIGHTS
+    available_sum = sum(target_weights[sig] for sig, is_avail in signal_availability.items() if is_avail)
     degraded_signals = [sig for sig, is_avail in signal_availability.items() if not is_avail]
 
     if available_sum <= 0:
         # Fallback equal weights
-        n = len(DEFAULT_WEIGHTS)
-        return {sig: round(1.0 / n, 4) for sig in DEFAULT_WEIGHTS}, degraded_signals
+        n = len(target_weights)
+        return {sig: round(1.0 / n, 4) for sig in target_weights}, degraded_signals
 
     renormalized = {}
-    for sig, def_weight in DEFAULT_WEIGHTS.items():
+    for sig, def_weight in target_weights.items():
         if signal_availability.get(sig, False):
             renormalized[sig] = round(def_weight / available_sum, 4)
         else:
@@ -202,7 +204,8 @@ class _MockLeadForML:
 def smart_score_leads(
     leads: List[Dict[str, Any]],
     scoring_mode: str = "rule",
-    hubspot_rules: List[Dict[str, Any]] = None
+    hubspot_rules: List[Dict[str, Any]] = None,
+    custom_weights: Dict[str, float] = None
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Scores all clean leads with automatic graceful degradation:
@@ -210,12 +213,19 @@ def smart_score_leads(
     - Applies HubSpot workflow scoring rules (boosts/penalties from imported workflows).
     - Computes both Rule-based and ML classifier scores.
     - Classifies leads into Hot (80-100), Warm (50-79), Cold (0-49).
+    - Caps score at Warm and marks 'Fit score only' if lead has no behavioral data.
     """
     if hubspot_rules is None:
         hubspot_rules = []
 
-    availability = determine_signal_availability(leads)
-    active_weights, degraded_signals = calculate_renormalized_weights(availability)
+    # If custom weights provided (from system settings), scale to fractions summing to 1.0
+    effective_base_weights = None
+    if custom_weights:
+        w_sum = sum(custom_weights.values()) or 100.0
+        effective_base_weights = {k: round(v / w_sum, 4) for k, v in custom_weights.items()}
+
+    availability = determine_signal_availability(leads, effective_base_weights)
+    active_weights, degraded_signals = calculate_renormalized_weights(availability, effective_base_weights)
 
     hot_count = 0
     warm_count = 0
@@ -276,6 +286,16 @@ def smart_score_leads(
             })
 
         active_score = rule_score if scoring_mode == "rule" else ml_score
+
+        # Part 8 Requirement: If a lead has no behavioral data (no engagement AND no activity date),
+        # cap it at Warm and label it "Fit score only".
+        has_lead_eng = lead.get("engagement_score") is not None and str(lead.get("engagement_score")).strip() not in {"", "None", "nan"}
+        has_lead_rec = bool(lead.get("last_activity_date") and str(lead.get("last_activity_date")).strip())
+        if not has_lead_eng and not has_lead_rec:
+            active_score = min(active_score, 74.9)  # Cap at Warm
+            breakdown["fit_only"] = True
+            breakdown["final_score"] = active_score
+            breakdown.setdefault("top_reasons", []).insert(0, "Fit score only (missing behavioral engagement & activity data)")
 
         # Part 5 Requirement: A lead with needs_review (e.g. phone but no valid email) goes to Review, never straight to Hot
         if lead.get("needs_review"):

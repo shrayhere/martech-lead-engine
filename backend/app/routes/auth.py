@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Response, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -21,6 +22,7 @@ def login(req: LoginRequest, response: Response):
         raise HTTPException(status_code=401, detail="Invalid application password.")
 
     token = create_session_token()
+    is_prod = os.getenv("ENV", os.getenv("ENVIRONMENT", "development")).lower() in ("production", "prod")
     # Set httpOnly session cookie
     response.set_cookie(
         key="session_token",
@@ -28,7 +30,7 @@ def login(req: LoginRequest, response: Response):
         max_age=7 * 24 * 3600,
         httponly=True,
         samesite="lax",
-        secure=False  # allow localhost & standard proxies
+        secure=is_prod  # secure=True in production
     )
     return {
         "success": True,

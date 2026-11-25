@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, 
   Globe, 
@@ -9,14 +9,13 @@ import {
   Save, 
   CheckCircle2, 
   ShieldAlert,
-  Info
+  Info,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
-export default function SettingsPage({
-  defaultCountry = 'India',
-  onSaveSettings
-}) {
-  const [country, setCountry] = useState(defaultCountry);
+export default function SettingsPage() {
+  const [country, setCountry] = useState('India');
   const [weights, setWeights] = useState({
     engagement: 35,
     recency: 25,
@@ -25,19 +24,61 @@ export default function SettingsPage({
     target_industry: 15,
   });
 
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  // Fetch settings from API on load
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    fetch('/api/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (mounted && data) {
+          if (data.country) setCountry(data.country);
+          if (data.weights) setWeights(data.weights);
+        }
+      })
+      .catch(err => {
+        if (mounted) setErrorMessage('Could not load current settings.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   const totalWeight = Object.values(weights).reduce((a, b) => a + Number(b), 0);
 
   const handleWeightChange = (key, val) => {
     setWeights(prev => ({ ...prev, [key]: Number(val) }));
     setSavedSuccess(false);
+    setErrorMessage(null);
   };
 
-  const handleSave = () => {
-    if (onSaveSettings) onSaveSettings({ country, weights });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+  const handleSave = async () => {
+    setSaving(true);
+    setErrorMessage(null);
+    setSavedSuccess(false);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country, weights })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to save settings');
+      }
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      setErrorMessage(err.message || 'Error saving settings.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -131,19 +172,24 @@ export default function SettingsPage({
       </div>
 
       {/* Save Button */}
-      <div className="flex items-center justify-end gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-3 pt-2">
+        {errorMessage && (
+          <span className="text-xs text-rose-400 flex items-center gap-1.5 font-semibold">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {errorMessage}
+          </span>
+        )}
         {savedSuccess && (
           <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-semibold">
-            <CheckCircle2 className="w-4 h-4" /> Settings updated successfully
+            <CheckCircle2 className="w-4 h-4 shrink-0" /> Settings updated successfully
           </span>
         )}
         <button
           onClick={handleSave}
-          disabled={totalWeight !== 100}
+          disabled={saving || totalWeight !== 100}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors cursor-pointer"
         >
-          <Save className="w-4 h-4" />
-          <span>Save Preferences</span>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          <span>{saving ? 'Saving Preferences…' : 'Save Preferences'}</span>
         </button>
       </div>
     </div>

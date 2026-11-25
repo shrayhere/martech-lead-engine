@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,7 +27,7 @@ import time
 
 from app.database import engine, Base, ensure_sqlite_columns, run_migrations
 from app.routes import ingestion, cleaning, scoring, assignment, pipeline, band_leads
-from app.routes import quality, review, classification, hubspot, auth
+from app.routes import quality, review, classification, hubspot, auth, settings
 from app.services.auth_service import verify_session_token
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,29 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_sqlite_columns(engine)
     run_migrations()
+
+    # Clean up stale runs stuck in 'running' for more than 30 minutes
+    try:
+        from app.database import SessionLocal
+        from app.models.schemas import PipelineRun
+        from datetime import datetime, timezone, timedelta
+        db_init = SessionLocal()
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+        stale_runs = (
+            db_init.query(PipelineRun)
+            .filter(PipelineRun.status == "running", PipelineRun.created_at < cutoff)
+            .all()
+        )
+        if stale_runs:
+            for sr in stale_runs:
+                sr.status = "failed"
+                sr.stage = "failed"
+                sr.summary = json.dumps({"error": "Run timed out / server restarted while in progress"})
+            db_init.commit()
+            logger.info("Marked %d stale pipeline run(s) as 'failed'", len(stale_runs))
+        db_init.close()
+    except Exception as e:
+        logger.warning("Could not clean up stale runs on startup: %s", e)
 
     # Pre-warm ML and NLP models once at startup (never on request)
     try:
@@ -152,14 +176,23 @@ app.add_middleware(
 # Rate limiting & Authentication storage
 _general_reqs: dict = defaultdict(list)
 _upload_reqs: dict = defaultdict(list)
+_login_reqs: dict = defaultdict(list)
 
 
-def is_rate_limited(client_ip: str, is_upload: bool) -> bool:
+def is_rate_limited(client_ip: str, category: str) -> bool:
     if os.getenv("TESTING") == "1" and not os.getenv("TEST_RATE_LIMIT"):
         return False
     now = time.time()
-    store = _upload_reqs if is_upload else _general_reqs
-    limit = 10 if is_upload else 60
+    if category == "upload":
+        store = _upload_reqs
+        limit = 10
+    elif category == "login":
+        store = _login_reqs
+        limit = 5
+    else:
+        store = _general_reqs
+        limit = 60
+
     # 60 second sliding window
     valid = [t for t in store[client_ip] if now - t < 60.0]
     if len(valid) >= limit:
@@ -190,15 +223,29 @@ async def security_and_auth_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
 
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    # Extract client IP from X-Forwarded-For (first IP), fallback to client.host
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        client_ip = xff.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "127.0.0.1"
 
     # 1. Rate Limiting for /api
     if path.startswith("/api"):
-        is_upload = path in ("/api/pipeline/run", "/api/leads/upload")
-        if is_rate_limited(client_ip, is_upload):
+        if path == "/api/auth/login":
+            limit_cat = "login"
+            limit_msg = "Rate limit exceeded. Maximum 5 login attempts per minute."
+        elif path in ("/api/pipeline/run", "/api/leads/upload"):
+            limit_cat = "upload"
+            limit_msg = "Rate limit exceeded. Maximum 10 uploads per minute."
+        else:
+            limit_cat = "general"
+            limit_msg = "Rate limit exceeded. Maximum 60 requests per minute."
+
+        if is_rate_limited(client_ip, limit_cat):
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Rate limit exceeded. Maximum 10/min for uploads, 60/min for other requests."}
+                content={"detail": limit_msg}
             )
 
     # 2. Authentication for /api routes
@@ -242,6 +289,7 @@ app.include_router(quality.router, prefix="/api")
 app.include_router(review.router, prefix="/api")
 app.include_router(classification.router, prefix="/api")
 app.include_router(hubspot.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
 
 
 @app.get("/")

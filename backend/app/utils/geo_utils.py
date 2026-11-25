@@ -167,6 +167,18 @@ REPEATED_OR_INVALID_PHONES = {
 }
 
 
+COUNTRY_NAME_TO_ISO = {
+    "INDIA": "IN", "IN": "IN",
+    "UNITED STATES": "US", "USA": "US", "US": "US",
+    "GERMANY": "DE", "DE": "DE", "DEUTSCHLAND": "DE",
+    "UNITED KINGDOM": "GB", "UK": "GB", "GB": "GB",
+    "CANADA": "CA", "CA": "CA",
+    "SINGAPORE": "SG", "SG": "SG",
+    "UNITED ARAB EMIRATES": "AE", "UAE": "AE", "AE": "AE",
+    "AUSTRALIA": "AU", "AU": "AU",
+}
+
+
 def normalize_phone_intl(phone_raw: Optional[str], default_country: str = "IN") -> Optional[str]:
     """
     Standardizes international and national phone numbers to E.164.
@@ -181,11 +193,13 @@ def normalize_phone_intl(phone_raw: Optional[str], default_country: str = "IN") 
     if digits in REPEATED_OR_INVALID_PHONES or len(digits) < 7:
         return None
 
+    region = COUNTRY_NAME_TO_ISO.get(str(default_country or "IN").strip().upper(), "IN")
+
     try:
         if clean.startswith("+"):
             parsed = phonenumbers.parse(clean, None)
         else:
-            parsed = phonenumbers.parse(clean, default_country)
+            parsed = phonenumbers.parse(clean, region)
 
         if phonenumbers.is_valid_number(parsed):
             return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)

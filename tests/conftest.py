@@ -4,6 +4,8 @@ import tempfile
 import pytest
 
 os.environ["TESTING"] = "1"
+os.environ.setdefault("APP_PASSWORD", "testpass123")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-1234567890")
 _TEST_DIR = tempfile.mkdtemp(prefix="martech_root_tests_")
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or \
     "sqlite:///" + os.path.join(_TEST_DIR, "test_martech.db").replace("\\", "/")

@@ -273,13 +273,21 @@ async def hubspot_webhook(request: Request, db: Session = Depends(get_db)):
     deal.propertyChange, etc.).
 
     HubSpot signs the request with HMAC-SHA256 using the app's client secret.
-    Set HUBSPOT_CLIENT_SECRET env var to enable signature verification.
-    If not set, we accept all events (suitable for dev/testing).
+    In production, HUBSPOT_CLIENT_SECRET is strictly required; calls without it are rejected (401).
+    Signatures are verified against WEBHOOK_PUBLIC_URL (or request.url as fallback).
     """
     body_bytes = await request.body()
+    env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development")).lower()
+    is_prod = env in ("production", "prod")
 
-    # Signature verification (mandatory if HUBSPOT_CLIENT_SECRET is configured)
     client_secret = os.getenv("HUBSPOT_CLIENT_SECRET")
+    if is_prod and not client_secret:
+        raise HTTPException(
+            status_code=401,
+            detail="Webhook configuration error: HUBSPOT_CLIENT_SECRET must be configured in production."
+        )
+
+    # Signature verification (mandatory in production, or whenever HUBSPOT_CLIENT_SECRET is set)
     if client_secret:
         sig_header = request.headers.get("X-HubSpot-Signature-v3", "")
         timestamp_header = request.headers.get("X-HubSpot-Request-Timestamp", "")
@@ -296,7 +304,9 @@ async def hubspot_webhook(request: Request, db: Session = Depends(get_db)):
         except ValueError:
             raise HTTPException(status_code=401, detail="Invalid HubSpot timestamp format")
 
-        uri = str(request.url)
+        # In production or behind reverse proxies, HubSpot calls WEBHOOK_PUBLIC_URL
+        webhook_public_url = os.getenv("WEBHOOK_PUBLIC_URL")
+        uri = webhook_public_url.rstrip("/") if webhook_public_url else str(request.url)
         body_str = body_bytes.decode("utf-8", errors="replace")
         source = f"{request.method}{uri}{body_str}{timestamp_header}"
         expected_hex = hmac.new(

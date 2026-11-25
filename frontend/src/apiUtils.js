@@ -9,17 +9,8 @@ if (typeof window !== 'undefined' && !window._authFetchPatched) {
     let [resource, config] = args;
     config = config ? { ...config } : {};
 
-    // Ensure cookies are sent with requests
+    // Ensure cookies are sent with requests (httpOnly session cookie)
     config.credentials = config.credentials || 'include';
-
-    // Attach Bearer token from localStorage if available
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers = {
-        ...(config.headers || {}),
-        Authorization: `Bearer ${token}`,
-      };
-    }
 
     const response = await originalFetch(resource, config);
 
