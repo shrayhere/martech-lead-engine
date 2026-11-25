@@ -317,7 +317,7 @@ def execute_smart_pipeline(
         for i in range(0, len(assign_log_models), chunk_size):
             db.bulk_save_objects(assign_log_models[i:i + chunk_size])
 
-        # Human review queue: borderline duplicate pairs + junk rows
+        # Human review queue: borderline duplicate pairs + junk rows + phone-only / review-needed leads
         review_models = [
             ReviewItem(run_id=run_id, item_type="merge", status="pending", id_type="csv_row",
                        record_a_ref=p["a_row"], record_b_ref=p["b_row"],
@@ -330,6 +330,11 @@ def execute_smart_pipeline(
                        record_a_ref=l.get("row_index") or 0, record_a=json.dumps(_snapshot(l), default=str),
                        reason=l.get("junk_reason"))
             for l in assigned_leads if l.get("is_junk")
+        ] + [
+            ReviewItem(run_id=run_id, item_type="lead_review", status="pending", id_type="csv_row",
+                       record_a_ref=l.get("row_index") or 0, record_a=json.dumps(_snapshot(l), default=str),
+                       reason=l.get("review_reason") or "Lead has phone number but missing valid email address (held in Review)")
+            for l in assigned_leads if l.get("needs_review") and not l.get("is_junk")
         ] + [
             # Rows dropped at cleaning (no email and no phone) are queued too; they are not in clean_leads
             ReviewItem(run_id=run_id, item_type="junk", status="pending", id_type="csv_row",

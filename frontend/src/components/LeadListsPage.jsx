@@ -9,7 +9,8 @@ export default function LeadListsPage({
   initialBand = 'all',
   selectedRunId,
   runs = [],
-  onSelectRun
+  onSelectRun,
+  onOpenLeadDetail
 }) {
   const [band, setBand] = useState(initialBand);
   const [searchQuery, setSearchQuery] = useState('');
@@ -311,7 +312,13 @@ export default function LeadListsPage({
                   return (
                     <React.Fragment key={lead.id}>
                       <tr
-                        onClick={() => toggleRowExpansion(lead.id)}
+                        onClick={() => {
+                          if (onOpenLeadDetail) {
+                            onOpenLeadDetail(lead);
+                          } else {
+                            toggleRowExpansion(lead.id);
+                          }
+                        }}
                         className={`hover:bg-slate-800/40 transition-colors cursor-pointer ${
                           isExpanded ? 'bg-indigo-950/20' : ''
                         }`}

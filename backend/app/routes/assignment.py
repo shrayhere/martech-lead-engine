@@ -29,13 +29,15 @@ def get_reps_overview(db: Session = Depends(get_db)):
 
     result = []
     for rep in reps:
-        assigned_leads = db.query(CleanLead).filter(CleanLead.assigned_rep_id == rep.id, CleanLead.run_id.is_(None)).all()
+        # Count actual assigned leads (both staged runs and recent pipeline runs)
+        assigned_count = db.query(CleanLead).filter(CleanLead.assigned_rep_id == rep.id, CleanLead.is_junk == False).count()
+        assigned_leads = db.query(CleanLead).filter(CleanLead.assigned_rep_id == rep.id, CleanLead.is_junk == False).limit(50).all()
         result.append({
             "id": rep.id,
             "name": rep.name,
             "territory": rep.territory,
             "industry_specialty": rep.industry_specialty,
-            "assigned_count": len(assigned_leads),
+            "assigned_count": assigned_count,
             "leads": assigned_leads
         })
 

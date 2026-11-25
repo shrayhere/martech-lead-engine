@@ -7,11 +7,97 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, B
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.schemas import PipelineRun
+from app.models.schemas import PipelineRun, CleanLead
 from app.services.pipeline_service import execute_smart_pipeline, FILE_CACHE, RUN_PROGRESS
 from app.utils.security import sanitize_csv_cell
 
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
+
+@router.post("/demo")
+async def run_demo_pipeline(
+    db: Session = Depends(get_db)
+):
+    """
+    Loads messy 1,000-lead sample dataset and executes the complete pipeline end-to-end.
+    """
+    import os
+    sample_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "1000_rows.csv"),
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "crm", "samples", "01_first_import.csv")
+    ]
+    file_bytes = None
+    filename = "sample_1000_leads.csv"
+    for p in sample_paths:
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                file_bytes = f.read()
+            filename = os.path.basename(p)
+            break
+
+    if not file_bytes:
+        # Generate inline synthetic 500 leads if fixture not found
+        import io
+        buf = io.StringIO()
+        buf.write("first_name,last_name,email,company,job_title,phone,state,industry,engagement_score,last_activity_date\n")
+        titles = ["VP Engineering", "Head of Growth", "Director Sales", "CTO", "Intern", "Founder & CEO", "Operations Manager"]
+        industries = ["Software", "Fintech", "Healthcare IT", "E-commerce", "SaaS"]
+        states = ["Maharashtra", "Karnataka", "California", "Tamil Nadu", "New York"]
+        for i in range(1, 501):
+            t = titles[i % len(titles)]
+            ind = industries[i % len(industries)]
+            st = states[i % len(states)]
+            buf.write(f"Lead{i},Sample{i},lead{i}@examplecorp.in,Acme {i % 20} Inc,{t},98765{i:05d},{st},{ind},{(i * 17) % 100},2026-10-15\n")
+        file_bytes = buf.getvalue().encode("utf-8")
+        filename = "synthetic_sample_500.csv"
+
+    demo_run_id = f"demo-{uuid.uuid4().hex[:8]}"
+    result = execute_smart_pipeline(
+        file_bytes=file_bytes,
+        filename=filename,
+        run_id=demo_run_id,
+        scoring_mode="rule",
+        db=db
+    )
+    return result
+
+@router.post("/check-duplicates")
+async def check_cross_upload_duplicates(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Checks how many leads in the incoming file already exist in previous runs
+    in the database (matching by exact email or phone number).
+    Returns count and prompt: 'X leads already exist; update or skip?'
+    """
+    file_bytes = await file.read()
+    filename = file.filename
+    try:
+        from app.services.smart_parser import parse_csv_file
+        from app.services.schema_mapper import apply_schema_mapping
+        raw_df, _ = parse_csv_file(file_bytes, filename)
+        mapped_df, _ = apply_schema_mapping(raw_df)
+
+        incoming_emails = set(mapped_df["email"].dropna().astype(str).str.strip().str.lower())
+        incoming_phones = set(mapped_df["phone"].dropna().astype(str).str.strip())
+
+        existing_emails = set(
+            r[0].lower() for r in db.query(CleanLead.email)
+            .filter(CleanLead.email.in_(incoming_emails), CleanLead.is_junk == False).all() if r[0]
+        )
+        existing_phones = set(
+            r[0] for r in db.query(CleanLead.phone)
+            .filter(CleanLead.phone.in_(incoming_phones), CleanLead.is_junk == False).all() if r[0]
+        )
+
+        match_count = len(existing_emails.union(existing_phones))
+        return {
+            "duplicate_count": match_count,
+            "total_rows": len(mapped_df),
+            "message": f"{match_count} leads already exist; update or skip?" if match_count > 0 else "No existing duplicates found."
+        }
+    except Exception as e:
+        return {"duplicate_count": 0, "message": str(e)}
 
 @router.post("/run")
 async def run_pipeline(

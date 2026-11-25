@@ -3,46 +3,74 @@ from app.models.schemas import CleanLead, Rep, AssignmentLog
 
 SEED_REPS = [
     {
-        "name": "Sarah Jenkins",
-        "territory": "CA, WA, OR, NV",
-        "industry_specialty": "SaaS"
+        'name': 'Sarah Jenkins',
+        'territory': 'CA, WA, OR, NV',
+        'industry_specialty': 'SaaS'
     },
     {
-        "name": "Michael Chen",
-        "territory": "NY, MA, CT, NJ",
-        "industry_specialty": "Fintech"
+        'name': 'Michael Chen',
+        'territory': 'NY, MA, CT, NJ',
+        'industry_specialty': 'Fintech'
     },
     {
-        "name": "David Rodriguez",
-        "territory": "TX, FL, GA, NC",
-        "industry_specialty": "Enterprise Technology"
+        'name': 'David Rodriguez',
+        'territory': 'TX, FL, GA, NC',
+        'industry_specialty': 'Enterprise Technology'
     },
     {
-        "name": "Emily Watson",
-        "territory": "IL, MI, OH, IN",
-        "industry_specialty": "Healthcare IT"
+        'name': 'Aarav Patel',
+        'territory': 'INDIA - WEST, WEST, MAHARASHTRA, GUJARAT, MUMBAI, PUNE',
+        'industry_specialty': 'Enterprise Technology'
     },
     {
-        "name": "James Wilson",
-        "territory": "ALL",
-        "industry_specialty": "Cybersecurity"
+        'name': 'Pooja Iyer',
+        'territory': 'INDIA - SOUTH, SOUTH, KARNATAKA, TAMIL NADU, TELANGANA, BENGALURU, HYDERABAD',
+        'industry_specialty': 'SaaS'
+    },
+    {
+        'name': 'Rohan Sharma',
+        'territory': 'INDIA - NORTH, NORTH, DELHI, HARYANA, PUNJAB, UTTAR PRADESH, NOIDA, GURUGRAM',
+        'industry_specialty': 'Fintech'
+    },
+    {
+        'name': 'Ananya Sen',
+        'territory': 'INDIA - EAST, EAST, WEST BENGAL, ODISHA, BIHAR, KOLKATA',
+        'industry_specialty': 'Healthcare IT'
+    },
+    {
+        'name': 'James Wilson',
+        'territory': 'ALL',
+        'industry_specialty': 'Cybersecurity'
     }
 ]
 
 def seed_sales_reps(db: Session):
-    """Seeds default sales reps if reps table is empty."""
     existing = db.query(Rep).count()
     if existing == 0:
         rep_objects = [
             Rep(
-                name=r["name"],
-                territory=r["territory"],
-                industry_specialty=r["industry_specialty"],
+                name=r['name'],
+                territory=r['territory'],
+                industry_specialty=r['industry_specialty'],
                 assigned_lead_count=0
             ) for r in SEED_REPS
         ]
         db.bulk_save_objects(rep_objects)
         db.commit()
+    else:
+        # Check if India reps need to be seeded into existing table
+        names = {r.name for r in db.query(Rep).all()}
+        new_reps = [
+            Rep(
+                name=r['name'],
+                territory=r['territory'],
+                industry_specialty=r['industry_specialty'],
+                assigned_lead_count=0
+            ) for r in SEED_REPS if r['name'] not in names
+        ]
+        if new_reps:
+            db.bulk_save_objects(new_reps)
+            db.commit()
 
 def run_lead_assignment(db: Session) -> dict:
     """

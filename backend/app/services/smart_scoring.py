@@ -276,6 +276,11 @@ def smart_score_leads(
             })
 
         active_score = rule_score if scoring_mode == "rule" else ml_score
+
+        # Part 5 Requirement: A lead with needs_review (e.g. phone but no valid email) goes to Review, never straight to Hot
+        if lead.get("needs_review"):
+            active_score = min(active_score, 74.9)  # Cap at Warm, never Hot
+
         band = assign_score_band(active_score)
 
         if band == "Hot":

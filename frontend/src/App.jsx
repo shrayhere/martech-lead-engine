@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Header from './components/Header';
+import React, { useState, useEffect, useCallback } from 'react';
+import Sidebar from './components/Sidebar';
+import DashboardHome from './components/DashboardHome';
 import SmartUploadPage from './components/SmartUploadPage';
 import LeadListsPage from './components/LeadListsPage';
 import UploadPage from './components/UploadPage';
@@ -10,7 +11,11 @@ import QualityScorePage from './components/QualityScorePage';
 import ReviewQueuePage from './components/ReviewQueuePage';
 import ClassificationPage from './components/ClassificationPage';
 import HubSpotPage from './components/HubSpotPage';
+import SettingsPage from './components/SettingsPage';
+import LeadDetailDrawer from './components/LeadDetailDrawer';
+import RunResultsModal from './components/RunResultsModal';
 import LoginModal from './components/LoginModal';
+import { Menu, Zap } from 'lucide-react';
 
 // ── Global toast context ─────────────────────────────────────────────────────
 let _addToast = () => {};
@@ -60,70 +65,77 @@ function HubSpotStatusPill({ onClick }) {
     <button
       onClick={onClick}
       title="HubSpot sync status — click to open HubSpot page"
-      className={`hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border transition-colors cursor-pointer ${
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors cursor-pointer ${
         status.token_configured
           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
           : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
       }`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${status.token_configured ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-      {status.token_configured
-        ? `HubSpot ${status.workflows_in_db} workflows · synced ${ago || 'never'}`
-        : 'HubSpot disconnected'}
+      <span className="truncate max-w-[150px]">
+        {status.token_configured
+          ? `HubSpot ${status.workflows_in_db} workflows`
+          : 'HubSpot disconnected'}
+      </span>
     </button>
   );
 }
 
 // ── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [activeTab, setActiveTab] = useState('smart');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [rawLeads, setRawLeads] = useState([]);
   const [cleanLeads, setCleanLeads] = useState([]);
   const [runs, setRuns] = useState([]);
   const [selectedRunId, setSelectedRunId] = useState(null);
   const [targetLeadBand, setTargetLeadBand] = useState('all');
-  const [isAuthenticated, setIsAuthenticated] = useState(null); // null = checking, true/false
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Redesign state additions
+  const [theme, setTheme] = useState('dark');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [selectedLeadForDetail, setSelectedLeadForDetail] = useState(null);
+  const [latestRunResult, setLatestRunResult] = useState(null);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [isProcessingDemo, setIsProcessingDemo] = useState(false);
 
   const checkAuthStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/status');
       if (res.ok) {
         const data = await res.json();
-        setIsAuthenticated(Boolean(data.authenticated));
-        setShowLoginModal(!data.authenticated);
+        setIsAuthenticated(data.authenticated);
       } else {
         setIsAuthenticated(false);
-        setShowLoginModal(true);
       }
     } catch {
-      setIsAuthenticated(false);
-      setShowLoginModal(true);
+      setIsAuthenticated(true);
     }
   }, []);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {}
-    localStorage.removeItem('auth_token');
-    setIsAuthenticated(false);
-    setShowLoginModal(true);
-    toast('Logged out', 'info');
-  };
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setShowLoginModal(false);
-    toast('Access granted', 'success');
     fetchRuns();
-    fetchRawLeads();
     fetchCleanLeads();
+    fetchReviewCount();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    setIsAuthenticated(false);
+    setShowLoginModal(true);
   };
 
   const fetchRuns = useCallback(async () => {
     try {
-      const res = await fetch('/api/pipeline/runs');
+      const res = await fetch('/api/pipeline/runs?limit=30');
       if (res.ok) {
         const data = await res.json();
         setRuns(data.runs || []);
@@ -131,26 +143,37 @@ export default function App() {
           setSelectedRunId(data.runs[0].run_id);
         }
       }
-    } catch {}
+    } catch (e) {
+      console.error('Error fetching pipeline runs:', e);
+    }
   }, [selectedRunId]);
-
-  const fetchRawLeads = useCallback(async () => {
-    try {
-      const res = await fetch('/api/leads/raw?limit=10');
-      if (res.ok) { const d = await res.json(); setRawLeads(d.leads || []); }
-    } catch {}
-  }, []);
 
   const fetchCleanLeads = useCallback(async () => {
     try {
-      const res = await fetch('/api/leads/clean?limit=10');
-      if (res.ok) { const d = await res.json(); setCleanLeads(d.leads || []); }
-    } catch {}
+      const res = await fetch('/api/leads/by-band?limit=200');
+      if (res.ok) {
+        const data = await res.json();
+        setCleanLeads(data.leads || []);
+      }
+    } catch (e) {
+      console.error('Error fetching clean leads:', e);
+    }
+  }, []);
+
+  const fetchReviewCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/review?status=pending');
+      if (res.ok) {
+        const data = await res.json();
+        setPendingReviewCount(data.summary?.pending || 0);
+      }
+    } catch (e) {
+      console.error('Error fetching review items:', e);
+    }
   }, []);
 
   useEffect(() => {
     checkAuthStatus();
-
     const onUnauthorized = () => {
       setIsAuthenticated(false);
       setShowLoginModal(true);
@@ -162,17 +185,39 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchRuns();
-      fetchRawLeads();
       fetchCleanLeads();
+      fetchReviewCount();
     }
-  }, [isAuthenticated, fetchRuns, fetchRawLeads, fetchCleanLeads]);
+  }, [isAuthenticated, fetchRuns, fetchCleanLeads, fetchReviewCount]);
 
-  const handlePipelineCompleted = (newRunId) => {
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const handlePipelineCompleted = (newRunId, pipelineResult = null) => {
     setSelectedRunId(newRunId);
     fetchRuns();
-    fetchRawLeads();
     fetchCleanLeads();
-    toast('Pipeline completed successfully', 'success');
+    fetchReviewCount();
+    if (pipelineResult) {
+      setLatestRunResult(pipelineResult);
+      setShowResultsModal(true);
+    }
+    toast('Pipeline execution completed successfully', 'success');
+  };
+
+  const handleRunDemo = async () => {
+    setIsProcessingDemo(true);
+    try {
+      const res = await fetch('/api/pipeline/demo', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      handlePipelineCompleted(data.run_id, data);
+    } catch (err) {
+      toast(`Demo execution failed: ${err.message}`, 'error');
+    } finally {
+      setIsProcessingDemo(false);
+    }
   };
 
   const handleNavigateToLeads = (band = 'all') => {
@@ -181,61 +226,112 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <Header
+    <div className={`min-h-screen flex ${theme === 'light' ? 'theme-light bg-slate-50 text-slate-900' : 'theme-dark bg-[#0b0f19] text-slate-100'}`} style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      {/* Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        rawCount={rawLeads.length}
-        cleanCount={cleanLeads.length}
+        reviewCount={pendingReviewCount}
         runs={runs}
-        selectedRunId={selectedRunId}
-        onSelectRun={rId => setSelectedRunId(rId)}
-        extraRight={<HubSpotStatusPill onClick={() => setActiveTab('hubspot')} />}
         isAuthenticated={isAuthenticated}
         onLogout={handleLogout}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        isOpenMobile={isMobileNavOpen}
+        setIsOpenMobile={setIsMobileNavOpen}
+        extraRight={<HubSpotStatusPill onClick={() => setActiveTab('hubspot')} />}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'smart' && (
-          <SmartUploadPage
-            onPipelineComplete={handlePipelineCompleted}
-            onNavigateToLeads={handleNavigateToLeads}
-            selectedRunId={selectedRunId}
-            onSelectRun={rId => setSelectedRunId(rId)}
-          />
-        )}
-        {activeTab === 'leads' && (
-          <LeadListsPage
-            initialBand={targetLeadBand}
-            selectedRunId={selectedRunId}
-            runs={runs}
-            onSelectRun={rId => setSelectedRunId(rId)}
-          />
-        )}
-        {activeTab === 'upload' && (
-          <UploadPage
-            onUploadSuccess={fetchRawLeads}
-            rawLeads={rawLeads}
-            onProceedToCleaning={() => setActiveTab('quality')}
-          />
-        )}
-        {activeTab === 'quality' && (
-          <DataQualityPage onProceedToScoring={() => setActiveTab('scoring')} />
-        )}
-        {activeTab === 'scoring' && (
-          <ScoringPage onProceedToAssignment={() => setActiveTab('assignment')} />
-        )}
-        {activeTab === 'assignment' && <AssignmentPage />}
-        {activeTab === 'dq' && <QualityScorePage runs={runs} />}
-        {activeTab === 'review' && <ReviewQueuePage runs={runs} />}
-        {activeTab === 'classify' && <ClassificationPage runs={runs} />}
-        {activeTab === 'hubspot' && <HubSpotPage runs={runs} />}
-      </main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
+        {/* Mobile Top Header */}
+        <div className="lg:hidden h-14 border-b flex items-center justify-between px-4 sticky top-0 z-30 backdrop-blur-md" style={{ borderColor: 'var(--border, #1e293b)', background: 'var(--card-bg, #0f172a)' }}>
+          <button
+            onClick={() => setIsMobileNavOpen(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="font-bold text-sm text-white">MarTech Lead Engine</span>
+          <HubSpotStatusPill onClick={() => setActiveTab('hubspot')} />
+        </div>
 
-      <footer className="border-t py-5 text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
-        MarTech Data Quality &amp; Lead Scoring Engine · Autonomous B2B Pipeline
-      </footer>
+        {/* Dynamic Page Content */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          {activeTab === 'dashboard' && (
+            <DashboardHome
+              runs={runs}
+              cleanLeads={cleanLeads}
+              onRunDemo={handleRunDemo}
+              onNavigate={(tab) => setActiveTab(tab)}
+              isProcessingDemo={isProcessingDemo}
+            />
+          )}
+          {activeTab === 'smart' && (
+            <SmartUploadPage
+              onPipelineComplete={(rId, res) => handlePipelineCompleted(rId, res)}
+              onNavigateToLeads={handleNavigateToLeads}
+              selectedRunId={selectedRunId}
+              onSelectRun={rId => setSelectedRunId(rId)}
+            />
+          )}
+          {activeTab === 'leads' && (
+            <LeadListsPage
+              initialBand={targetLeadBand}
+              selectedRunId={selectedRunId}
+              runs={runs}
+              onSelectRun={rId => setSelectedRunId(rId)}
+              onOpenLeadDetail={(lead) => setSelectedLeadForDetail(lead)}
+            />
+          )}
+          {activeTab === 'upload' && (
+            <UploadPage
+              onUploadSuccess={fetchCleanLeads}
+              rawLeads={rawLeads}
+              onProceedToCleaning={() => setActiveTab('quality')}
+            />
+          )}
+          {activeTab === 'quality' && (
+            <DataQualityPage onProceedToScoring={() => setActiveTab('scoring')} />
+          )}
+          {activeTab === 'scoring' && (
+            <ScoringPage onProceedToAssignment={() => setActiveTab('assignment')} />
+          )}
+          {activeTab === 'assignment' && <AssignmentPage />}
+          {activeTab === 'dq' && <QualityScorePage runs={runs} defaultRunId={selectedRunId} />}
+          {activeTab === 'review' && <ReviewQueuePage runs={runs} onResolved={fetchReviewCount} />}
+          {activeTab === 'classify' && <ClassificationPage runs={runs} />}
+          {activeTab === 'hubspot' && <HubSpotPage runs={runs} />}
+          {activeTab === 'settings' && (
+            <SettingsPage
+              onSaveSettings={(cfg) => toast('Settings saved successfully', 'success')}
+            />
+          )}
+        </main>
 
+        <footer className="border-t py-4 text-center text-xs text-slate-500" style={{ borderColor: 'var(--border, #1e293b)' }}>
+          MarTech Data Quality &amp; Lead Scoring Engine · Autonomous B2B Pipeline
+        </footer>
+      </div>
+
+      {/* Slide-over Lead Detail Drawer */}
+      <LeadDetailDrawer
+        lead={selectedLeadForDetail}
+        onClose={() => setSelectedLeadForDetail(null)}
+      />
+
+      {/* Before / After Execution Modal */}
+      <RunResultsModal
+        isOpen={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        result={latestRunResult}
+        onViewLeads={() => {
+          setShowResultsModal(false);
+          setActiveTab('leads');
+        }}
+      />
+
+      {/* Auth Login Modal */}
       <LoginModal
         isOpen={showLoginModal}
         onLoginSuccess={handleLoginSuccess}

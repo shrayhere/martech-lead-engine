@@ -20,5 +20,7 @@ openpyxl==3.1.5            # Excel file ingestion (.xlsx support)
 alembic==1.20.1
 pyjwt==2.15.1
 slowapi==0.1.10
+phonenumbers>=8.13.0
+idna>=3.7
 # development / tests
 pytest==9.2.0

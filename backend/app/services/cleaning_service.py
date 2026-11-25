@@ -5,128 +5,49 @@ from app.services.match_rules import fuzzy_match, REVIEW_BAND, auto_merge_min, c
 from sqlalchemy.orm import Session
 from app.models.schemas import RawLead, CleanLead, MergedLeadLog, ReviewItem, AssignmentLog
 from app.config import settings
-
-# Comprehensive US State Normalization Dictionary
-US_STATES_MAP = {
-    "ALABAMA": "AL", "AL": "AL", "ALAF": "AL",
-    "ALASKA": "AK", "AK": "AK",
-    "ARIZONA": "AZ", "AZ": "AZ", "ARIZ": "AZ",
-    "ARKANSAS": "AR", "AR": "AR",
-    "CALIFORNIA": "CA", "CA": "CA", "CALIF": "CA", "CALIF.": "CA", "CALI": "CA",
-    "COLORADO": "CO", "CO": "CO", "COLO": "CO",
-    "CONNECTICUT": "CT", "CT": "CT", "CONN": "CT",
-    "DELAWARE": "DE", "DE": "DE",
-    "FLORIDA": "FL", "FL": "FL", "FLA": "FL",
-    "GEORGIA": "GA", "GA": "GA",
-    "HAWAII": "HI", "HI": "HI",
-    "IDAHO": "ID", "ID": "ID",
-    "ILLINOIS": "IL", "IL": "IL", "ILL": "IL",
-    "INDIANA": "IN", "IN": "IN", "IND": "IN",
-    "IOWA": "IA", "IA": "IA",
-    "KANSAS": "KS", "KS": "KS", "KANS": "KS",
-    "KENTUCKY": "KY", "KY": "KY",
-    "LOUISIANA": "LA", "LA": "LA",
-    "MAINE": "ME", "ME": "ME",
-    "MARYLAND": "MD", "MD": "MD",
-    "MASSACHUSETTS": "MA", "MA": "MA", "MASS": "MA",
-    "MICHIGAN": "MI", "MI": "MI", "MICH": "MI",
-    "MINNESOTA": "MN", "MN": "MN", "MINN": "MN",
-    "MISSISSIPPI": "MS", "MS": "MS",
-    "MISSOURI": "MO", "MO": "MO",
-    "MONTANA": "MT", "MT": "MT",
-    "NEBRASKA": "NE", "NE": "NE", "NEBR": "NE",
-    "NEVADA": "NV", "NV": "NV",
-    "NEW HAMPSHIRE": "NH", "NH": "NH",
-    "NEW JERSEY": "NJ", "NJ": "NJ",
-    "NEW MEXICO": "NM", "NM": "NM",
-    "NEW YORK": "NY", "NY": "NY", "N.Y.": "NY",
-    "NORTH CAROLINA": "NC", "NC": "NC",
-    "NORTH DAKOTA": "ND", "ND": "ND",
-    "OHIO": "OH", "OH": "OH",
-    "OKLAHOMA": "OK", "OK": "OK", "OKLA": "OK",
-    "OREGON": "OR", "OR": "OR", "ORE": "OR",
-    "PENNSYLVANIA": "PA", "PA": "PA", "PENN": "PA",
-    "RHODE ISLAND": "RI", "RI": "RI",
-    "SOUTH CAROLINA": "SC", "SC": "SC",
-    "SOUTH DAKOTA": "SD", "SD": "SD",
-    "TENNESSEE": "TN", "TN": "TN", "TENN": "TN",
-    "TEXAS": "TX", "TX": "TX", "TEX": "TX",
-    "UTAH": "UT", "UT": "UT",
-    "VERMONT": "VT", "VT": "VT",
-    "VIRGINIA": "VA", "VA": "VA",
-    "WASHINGTON": "WA", "WA": "WA", "WASH": "WA",
-    "WEST VIRGINIA": "WV", "WV": "WV",
-    "WISCONSIN": "WI", "WI": "WI", "WISC": "WI",
-    "WYOMING": "WY", "WY": "WY"
-}
+from app.utils.geo_utils import (
+    US_STATES_MAP,
+    INDIAN_STATES,
+    DISPOSABLE_DOMAINS,
+    FAKE_NAMES,
+    normalize_phone_intl,
+    validate_email_intl,
+    normalize_state_intl,
+    detect_country,
+    is_advanced_junk_lead
+)
 
 JUNK_PLACEHOLDERS = {
-    "test", "n/a", "na", "asdf", "none", "null", "dummy", "testing 123",
-    "xyz", "test company", "asdf inc", "dummy corp", "noemail", "n/a inc",
-    "sample", "unknown", "bot", "script", "0000000000", "1234567"
+    'test', 'n/a', 'na', 'asdf', 'none', 'null', 'dummy', 'testing 123',
+    'xyz', 'test company', 'asdf inc', 'dummy corp', 'noemail', 'n/a inc',
+    'sample', 'unknown', 'bot', 'script', '0000000000', '1234567'
 }
 
-def normalize_state(state_raw: str) -> str:
-    """Standardizes state abbreviations/names to uppercase 2-letter postal code."""
-    if not state_raw:
-        return "UNKNOWN"
-    clean = state_raw.strip().upper().replace(".", "")
-    return US_STATES_MAP.get(clean, clean[:2] if len(clean) >= 2 else clean)
+def normalize_state(state_raw: str, country_hint: str = None) -> str:
+    st, _ = normalize_state_intl(state_raw, country_hint)
+    return st
 
-def normalize_phone(phone_raw: str) -> str:
-    """
-    Standardizes phone numbers into E.164-like international format (+1NXXNXXXXXX).
-    Strips non-digit characters except leading '+'.
-    """
-    if not phone_raw:
-        return None
-    digits = re.sub(r"[^\d]", "", str(phone_raw))
-    if not digits or digits in {"0000000000", "1111111111", "1234567"}:
-        return None
-    if len(digits) == 10:
-        return f"+1{digits}"
-    elif len(digits) == 11 and digits.startswith("1"):
-        return f"+{digits}"
-    return f"+{digits}" if len(digits) >= 7 else None
+def normalize_phone(phone_raw: str, default_country: str = 'IN') -> str:
+    return normalize_phone_intl(phone_raw, default_country)
 
 def normalize_company(company_raw: str) -> str:
-    """Trims whitespace and standardizes casing on company names."""
     if not company_raw:
         return None
     clean = company_raw.strip()
-    # If all caps or all lower, title case it
     if clean.isupper() or clean.islower():
         words = clean.split()
         capitalized = []
         for w in words:
-            if w.upper() in {"AI", "IT", "SaaS", "IP", "LLC", "INC", "CORP", "VP", "CTO", "CEO"}:
+            if w.upper() in {'AI', 'IT', 'SAAS', 'IP', 'LLC', 'INC', 'CORP', 'VP', 'CTO', 'CEO', 'PVT', 'LTD'}:
                 capitalized.append(w.upper())
             else:
                 capitalized.append(w.capitalize())
-        return " ".join(capitalized)
+        return ' '.join(capitalized)
     return clean
 
 def is_junk_lead(first_name: str, last_name: str, email: str, company: str, phone: str) -> tuple[bool, str]:
-    """
-    Flags junk rows:
-    1. Missing both email AND phone.
-    2. Company field contains obvious placeholder strings like 'test', 'n/a', 'asdf'.
-    """
-    email_clean = (email or "").strip().lower()
-    phone_clean = (phone or "").strip()
-    company_clean = (company or "").strip().lower()
-    first_clean = (first_name or "").strip().lower()
-
-    if not email_clean and not phone_clean:
-        return True, "Missing both email and phone contact details"
-
-    if company_clean in JUNK_PLACEHOLDERS or first_clean in JUNK_PLACEHOLDERS:
-        return True, f"Placeholder junk detected in company/name field ('{company or first_name}')"
-
-    if email_clean and any(junk in email_clean for junk in ["@asdf", "@test", "@spam", "@bot", "@sample", "fake@"]):
-        return True, f"Suspicious placeholder email domain ('{email_clean}')"
-
-    return False, None
+    is_junk, reason, _ = is_advanced_junk_lead(first_name, last_name, email, company, phone)
+    return is_junk, reason
 
 def calculate_completeness_score(lead) -> float:
     """Calculates data completeness percentage (0 to 100) based on key fields."""

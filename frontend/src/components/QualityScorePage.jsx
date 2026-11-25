@@ -53,10 +53,17 @@ function IssueList({ title, side }) {
 }
 
 export default function QualityScorePage({ runs = [], defaultRunId = '' }) {
-  const [runId, setRunId] = useState(defaultRunId || '');
+  const initialRunId = defaultRunId || (runs && runs.length > 0 ? runs[0].run_id : '');
+  const [runId, setRunId] = useState(initialRunId);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!runId && runs && runs.length > 0) {
+      setRunId(runs[0].run_id);
+    }
+  }, [runs, runId]);
 
   const load = useCallback(async () => {
     setLoading(true);

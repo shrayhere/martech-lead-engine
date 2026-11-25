@@ -24,4 +24,5 @@ def resolve_review_item(item_id: int, decision: str, note: Optional[str] = Body(
     try:
         return review_service.resolve(db, item_id, decision, note)
     except review_service.ReviewError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        status_code = 404 if "not found" in str(e).lower() else 400
+        raise HTTPException(status_code=status_code, detail=str(e))

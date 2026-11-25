@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, or_
 
 from app.database import get_db
-from app.models.schemas import CleanLead, Rep, CleaningLog, PipelineRun
+from app.models.schemas import CleanLead, Rep, CleaningLog, PipelineRun, ReviewItem
 from app.utils.security import sanitize_csv_cell
 
 router = APIRouter(prefix="/leads", tags=["Lead Lists & Bands"])
@@ -41,8 +41,17 @@ def get_leads_by_band(
     if target_run_id:
         query = query.filter(CleanLead.run_id == target_run_id)
 
-    # Exclude junk from active lead views unless explicitly requested
+    # Exclude junk and pending review items from active lead views
     query = query.filter(CleanLead.is_junk == False)
+    if target_run_id:
+        # Check review items pending for this run or source row
+        review_lead_refs = [
+            r[0] for r in db.query(ReviewItem.record_a_ref)
+            .filter(ReviewItem.run_id == target_run_id, ReviewItem.status == "pending", ReviewItem.item_type == "lead_review")
+            .all() if r[0] is not None
+        ]
+        if review_lead_refs:
+            query = query.filter(~CleanLead.source_row.in_(review_lead_refs))
 
     # Band filter
     band_lower = (band or "all").lower()
