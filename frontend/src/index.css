@@ -1,129 +1,387 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-/* ── Design token overrides ──────────────────────────────────────────────── */
-:root {
-  --bg:          #0B0F1A;
-  --surface:     #121826;
-  --border:      #1F2937;
-  --primary:     #6366F1;
-  --accent:      #2DD4BF;
-  --text:        #E5E7EB;
-  --muted:       #9CA3AF;
-  --hot:         #F97316;
-  --warm:        #FACC15;
-  --cold:        #60A5FA;
-  --success:     #22C55E;
-  --error:       #EF4444;
-  --radius:      12px;
+/* ── Theme definition for Tailwind v4 ────────────────────────────────────────── */
+@theme {
+  --font-serif: 'Instrument Serif', 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  --color-misty-deep: #1f3a40;
+  --color-misty-mid:  #4d7379;
+  --color-misty-light:#9fb8b5;
+  --color-misty-dark: #142528;
+  --color-misty-calm: #162a2e;
+
+  --color-cream:       #e6ecc9;
+  --color-cream-hover: #dbe2bd;
+  --color-cream-text:  #14282b;
+
+  --color-text-primary:   #f3f6f2;
+  --color-text-secondary: #c9d6d3;
+  --color-text-muted:     #8fa4a1;
+
+  --color-band-hot:  #e8a48a;
+  --color-band-warm: #e6c98a;
+  --color-band-cold: #9ec3d6;
 }
 
+/* ── Global CSS Variables ──────────────────────────────────────────────────── */
+:root {
+  /* Colors */
+  --bg-deep: #1f3a40;
+  --bg-mid:  #4d7379;
+  --bg-light:#9fb8b5;
+  --bg-dark: #122124;
+  --bg-calm: #162a2e;
+
+  --text-primary:   #f3f6f2;
+  --text-secondary: #c9d6d3;
+  --text-muted:     #8fa4a1;
+
+  --accent-cream:      #e6ecc9;
+  --accent-cream-dark: #14282b;
+
+  --band-hot:  #e8a48a;
+  --band-warm: #e6c98a;
+  --band-cold: #9ec3d6;
+
+  /* Glass surfaces */
+  --glass-surface:      rgba(255, 255, 255, 0.12);
+  --glass-surface-high: rgba(255, 255, 255, 0.18);
+  --glass-border:       rgba(255, 255, 255, 0.22);
+  --glass-border-light: rgba(255, 255, 255, 0.35);
+  
+  --glass-dark:         rgba(18, 33, 37, 0.72);
+  --glass-dark-border:  rgba(255, 255, 255, 0.14);
+
+  --radius-card: 22px;
+  --radius-pill: 9999px;
+}
+
+/* ── Typography & Base ─────────────────────────────────────────────────────── */
 @layer base {
   html {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    background-color: var(--bg-dark);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
   body {
-    @apply antialiased min-h-screen;
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    selection-background: var(--primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
-  /* Monospace numbers / code */
-  code, pre, .font-mono, [class*="tabular"] {
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Serif display headings */
+  .font-display {
+    font-family: 'Instrument Serif', 'Playfair Display', Georgia, Cambria, serif;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  /* Tabular numbers for clean data alignment */
+  .tabular-nums, table, [class*="tabular"] {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #4B5563; }
-
-/* ── Glass card ──────────────────────────────────────────────────────────── */
-.glass-panel {
-  background: rgba(18, 24, 38, 0.80);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-  border-radius: var(--radius);
+/* ── Dynamic Misty Teal Background ─────────────────────────────────────────── */
+.misty-background {
+  background: 
+    radial-gradient(ellipse 90% 60% at 50% 25%, rgba(159, 184, 181, 0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(230, 236, 201, 0.15) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 20% 85%, rgba(31, 58, 64, 0.85) 0%, transparent 70%),
+    linear-gradient(160deg, #1f3a40 0%, #30545a 35%, #4d7379 70%, #29484e 100%);
+  background-attachment: fixed;
+  background-size: 140% 140%;
+  animation: slowDrift 28s ease-in-out infinite alternate;
 }
 
-.glass-panel-hover {
-  transition: all 0.2s ease-in-out;
+@keyframes slowDrift {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 50% 30%; }
+  100% { background-position: 100% 70%; }
 }
-.glass-panel-hover:hover {
-  border-color: rgba(99, 102, 241, 0.35);
+
+@media (prefers-reduced-motion: reduce) {
+  .misty-background {
+    animation: none;
+    background-position: 0% 0%;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Calm Dark Teal Background (Data Screens) ──────────────────────────────── */
+.calm-background {
+  background: linear-gradient(175deg, #142528 0%, #162a2e 50%, #1a3136 100%);
+  background-attachment: fixed;
+}
+
+/* ── Glass Components ──────────────────────────────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.11);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 12px 36px 0 rgba(10, 24, 27, 0.35);
+  border-radius: var(--radius-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.glass-card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.18);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 18px 44px 0 rgba(10, 24, 27, 0.45);
 }
 
-/* ── Card surface ────────────────────────────────────────────────────────── */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.glass-dark-card {
+  background: rgba(18, 33, 37, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.38);
+  border-radius: var(--radius-card);
 }
 
-/* ── Lead temperature badges ─────────────────────────────────────────────── */
-.badge-hot  { background: rgba(249,115,22,.15); color: #F97316; border: 1px solid rgba(249,115,22,.35); }
-.badge-warm { background: rgba(250,204,21,.12); color: #FACC15; border: 1px solid rgba(250,204,21,.30); }
-.badge-cold { background: rgba(96,165,250,.13); color: #60A5FA; border: 1px solid rgba(96,165,250,.30); }
-
-/* ── Skeleton loader ─────────────────────────────────────────────────────── */
-@keyframes shimmer {
-  0%   { background-position: -800px 0; }
-  100% { background-position:  800px 0; }
-}
-.skeleton {
-  background: linear-gradient(90deg, #1F2937 25%, #374151 50%, #1F2937 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite linear;
-  border-radius: 6px;
+/* Mobile blur optimization */
+@media (max-width: 640px) {
+  .glass-card, .glass-dark-card {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 }
 
-/* ── Smooth hover transitions ────────────────────────────────────────────── */
-button, a, [role="button"] {
-  transition: all 0.15s ease-in-out;
+/* ── Pill Buttons ──────────────────────────────────────────────────────────── */
+.pill-cream {
+  background-color: var(--accent-cream);
+  color: var(--accent-cream-dark);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  padding: 0.625rem 1.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(18, 40, 43, 0.25);
+  cursor: pointer;
 }
 
-/* ── Focus rings ─────────────────────────────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+.pill-cream:hover:not(:disabled) {
+  background-color: #f0f5d7;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(18, 40, 43, 0.35);
 }
 
-/* ── Toast notification (vanilla; no library needed) ─────────────────────── */
+.pill-cream:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pill-glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: var(--text-primary);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.pill-glass:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Circular dark arrow container on primary button */
+.pill-arrow-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background-color: #14282b;
+  color: #e6ecc9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.pill-cream:hover .pill-arrow-icon {
+  transform: translateX(2px);
+}
+
+/* ── Step Cards with Giant Outline Numbers ─────────────────────────────────── */
+.step-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  padding: 1.5rem;
+  transition: all 0.25s ease;
+}
+
+.step-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.26);
+  transform: translateY(-2px);
+}
+
+.step-card-num {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.25rem;
+  font-size: 3.75rem;
+  font-weight: 300;
+  line-height: 1;
+  color: rgba(201, 214, 211, 0.15);
+  font-family: var(--font-sans);
+  letter-spacing: -0.05em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Muted Lead Temperature Badges ─────────────────────────────────────────── */
+.badge-hot {
+  background: rgba(232, 164, 138, 0.18);
+  color: var(--band-hot);
+  border: 1px solid rgba(232, 164, 138, 0.40);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-warm {
+  background: rgba(230, 201, 138, 0.16);
+  color: var(--band-warm);
+  border: 1px solid rgba(230, 201, 138, 0.38);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-cold {
+  background: rgba(158, 195, 214, 0.16);
+  color: var(--band-cold);
+  border: 1px solid rgba(158, 195, 214, 0.35);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ── Dot Grid Pattern Accent ───────────────────────────────────────────────── */
+.dot-grid {
+  background-image: radial-gradient(rgba(201, 214, 211, 0.22) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* ── Solid Tables on Calm Surface ──────────────────────────────────────────── */
+.table-calm {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-calm th {
+  background: rgba(18, 33, 37, 0.92);
+  backdrop-filter: blur(8px);
+  color: #8fa4a1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table-calm td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f3f6f2;
+  font-size: 0.875rem;
+}
+
+.table-calm tr:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(18, 33, 37, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(159, 184, 181, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(159, 184, 181, 0.5);
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Toast container ───────────────────────────────────────────────────────── */
 .toast-container {
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
-  z-index: 9999;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  pointer-events: none;
 }
 .toast {
-  pointer-events: all;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 9999px;
   font-size: 0.875rem;
   font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,.5);
-  animation: toast-in 0.25s ease;
-  min-width: 260px;
-  max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(20, 38, 42, 0.92);
+  color: #f3f6f2;
 }
-@keyframes toast-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+.toast-success {
+  border-color: rgba(230, 236, 201, 0.5);
+  color: #e6ecc9;
 }
-.toast-success { background: rgba(34,197,94,.18); border: 1px solid rgba(34,197,94,.35); color: #22C55E; }
-.toast-error   { background: rgba(239,68,68,.18);  border: 1px solid rgba(239,68,68,.35);  color: #EF4444; }
-.toast-info    { background: rgba(99,102,241,.18); border: 1px solid rgba(99,102,241,.35); color: #818CF8; }
+.toast-error {
+  border-color: rgba(232, 164, 138, 0.5);
+  color: #e8a48a;
+}

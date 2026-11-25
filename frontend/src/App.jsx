@@ -16,6 +16,7 @@ import LeadDetailDrawer from './components/LeadDetailDrawer';
 import RunResultsModal from './components/RunResultsModal';
 import LoginModal from './components/LoginModal';
 import { Menu, Zap } from 'lucide-react';
+import { MountainLogo } from './components/common/ThemeComponents';
 
 // ── Global toast context ─────────────────────────────────────────────────────
 let _addToast = () => {};
@@ -65,13 +66,13 @@ function HubSpotStatusPill({ onClick }) {
     <button
       onClick={onClick}
       title="HubSpot sync status — click to open HubSpot page"
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors cursor-pointer ${
+      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border transition-all cursor-pointer backdrop-blur-md ${
         status.token_configured
-          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-          : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+          ? 'bg-[#e6ecc9]/15 border-[#e6ecc9]/35 text-[#e6ecc9] hover:bg-[#e6ecc9]/25 shadow-sm'
+          : 'bg-white/10 border-white/15 text-[#c9d6d3] hover:bg-white/15'
       }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${status.token_configured ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${status.token_configured ? 'bg-[#e6ecc9]' : 'bg-[#8fa4a1]'}`} />
       <span className="truncate max-w-[150px]">
         {status.token_configured
           ? `HubSpot ${status.workflows_in_db} workflows`
@@ -226,7 +227,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen flex ${theme === 'light' ? 'theme-light bg-slate-50 text-slate-900' : 'theme-dark bg-[#0b0f19] text-slate-100'}`} style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className={`min-h-screen flex ${activeTab === 'dashboard' ? 'misty-background' : 'calm-background'} text-[#f3f6f2]`}>
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -245,14 +246,17 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
         {/* Mobile Top Header */}
-        <div className="lg:hidden h-14 border-b flex items-center justify-between px-4 sticky top-0 z-30 backdrop-blur-md" style={{ borderColor: 'var(--border, #1e293b)', background: 'var(--card-bg, #0f172a)' }}>
+        <div className="lg:hidden h-16 border-b border-white/10 flex items-center justify-between px-4 sticky top-0 z-30 backdrop-blur-xl bg-[#122124]/80">
           <button
             onClick={() => setIsMobileNavOpen(true)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+            className="p-1.5 rounded-full text-[#c9d6d3] hover:text-white"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-sm text-white">MarTech Lead Engine</span>
+          <span className="font-semibold text-sm text-[#f3f6f2] flex items-center gap-2">
+            <MountainLogo className="w-4 h-4 text-[#e6ecc9]" />
+            MarTech Lead Engine
+          </span>
           <HubSpotStatusPill onClick={() => setActiveTab('hubspot')} />
         </div>
 
@@ -309,7 +313,7 @@ export default function App() {
           )}
         </main>
 
-        <footer className="border-t py-4 text-center text-xs text-slate-500" style={{ borderColor: 'var(--border, #1e293b)' }}>
+        <footer className="border-t border-white/10 py-5 text-center text-xs text-[#8fa4a1]">
           MarTech Data Quality &amp; Lead Scoring Engine · Autonomous B2B Pipeline
         </footer>
       </div>

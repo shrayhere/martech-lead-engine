@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { MountainLogo, CreamButton, GlassPill } from './common/ThemeComponents';
 
 export default function LoginModal({ isOpen, onLoginSuccess }) {
   const [password, setPassword] = useState('');
@@ -11,7 +12,7 @@ export default function LoginModal({ isOpen, onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!password.trim()) {
-      setError('Please enter the application password');
+      setError('Please enter the workspace password');
       return;
     }
     setLoading(true);
@@ -36,77 +37,149 @@ export default function LoginModal({ isOpen, onLoginSuccess }) {
     }
   };
 
+  const featurePills = [
+    'Understands any columns',
+    'Merges duplicates',
+    'Explainable scores',
+    'Syncs to HubSpot'
+  ];
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div
-        className="w-full max-w-md rounded-2xl border p-6 sm:p-8 shadow-2xl relative"
+    <div className="fixed inset-0 z-[100] overflow-y-auto misty-background flex flex-col justify-between">
+      {/* Background artwork light layer */}
+      <div 
+        className="pointer-events-none absolute inset-0 z-0 opacity-40"
         style={{
-          background: 'var(--card, #131b2e)',
-          borderColor: 'var(--border, #2d3748)',
-          color: 'var(--text, #f7fafc)',
+          background: `
+            radial-gradient(ellipse 60% 40% at 50% 30%, rgba(200, 225, 220, 0.25) 0%, transparent 60%),
+            radial-gradient(ellipse 70% 50% at 85% 70%, rgba(18, 38, 42, 0.8) 0%, transparent 70%)
+          `
         }}
-      >
-        <div className="flex flex-col items-center text-center mb-6">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
-            style={{
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(45,212,191,0.2))',
-              border: '1px solid rgba(99,102,241,0.3)',
-            }}
-          >
-            <Lock className="w-7 h-7 text-indigo-400" />
-          </div>
-          <h2 className="text-xl font-bold tracking-tight">Access Required</h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs">
-            Enter the application password to unlock the MarTech Lead Engine dashboard.
-          </p>
+      />
+      <div className="pointer-events-none absolute top-8 right-12 w-48 h-48 dot-grid opacity-30 z-0" />
+
+      {/* Top Navigation Bar */}
+      <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 text-[#f3f6f2]">
+          <MountainLogo className="w-6 h-6 text-[#e6ecc9]" />
+          <span className="font-semibold text-base sm:text-lg tracking-tight">
+            MarTech Lead Engine
+          </span>
         </div>
 
-        {error && (
-          <div className="mb-4 flex items-center gap-2 p-3 rounded-lg text-xs bg-rose-500/10 border border-rose-500/30 text-rose-300">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{error}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <GlassPill onClick={() => {
+            const el = document.getElementById('how-it-works-preview');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}>
+            How it works
+          </GlassPill>
+          <GlassPill active className="hidden sm:inline-flex">
+            Sign in
+          </GlassPill>
+        </div>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Application Password
-            </label>
-            <div className="relative">
-              <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password..."
-                autoFocus
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-900/80 border border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-              />
+      {/* Hero + Login Grid */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto px-6 py-10 lg:py-16 flex-1 flex items-center">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+          
+          {/* Left Column: Value Proposition & Hero */}
+          <div className="lg:col-span-7 space-y-8 animate-fade-in-up">
+            <div className="space-y-4">
+              <span className="inline-block text-xs font-semibold tracking-[0.2em] text-[#c9d6d3] uppercase">
+                B2B Lead Pipeline
+              </span>
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.08] text-[#f3f6f2] tracking-tight">
+                <span className="font-display text-[#e6ecc9] mr-3">Clean</span> 
+                leads,
+                <br />
+                scored &amp; routed.
+              </h1>
+              <p className="text-base sm:text-lg text-[#c9d6d3] leading-relaxed max-w-xl font-light">
+                Upload any messy lead list. It fixes formats, merges duplicates, scores every lead with clear reasons and sends the best ones to the right rep.
+              </p>
+            </div>
+
+            {/* Feature Pills */}
+            <div className="flex flex-wrap gap-2.5 pt-2">
+              {featurePills.map((pill) => (
+                <span 
+                  key={pill}
+                  className="px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-white/10 backdrop-blur-md border border-white/20 text-[#f3f6f2] shadow-sm"
+                >
+                  {pill}
+                </span>
+              ))}
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Verifying...</span>
-              </>
-            ) : (
-              'Unlock Dashboard'
-            )}
-          </button>
-        </form>
+          {/* Right Column: Centered Glass Login Card */}
+          <div className="lg:col-span-5 flex justify-center lg:justify-end">
+            <div 
+              className="w-full max-w-md p-8 sm:p-10 rounded-[28px] border border-white/20 shadow-2xl backdrop-blur-2xl relative animate-fade-in-up"
+              style={{
+                background: 'rgba(18, 33, 37, 0.78)',
+                boxShadow: '0 24px 64px -12px rgba(0, 0, 0, 0.55)',
+              }}
+            >
+              <div className="mb-6">
+                <h2 className="font-display text-3xl sm:text-4xl text-[#f3f6f2] tracking-wide mb-1.5">
+                  Welcome back
+                </h2>
+                <p className="text-xs sm:text-sm text-[#c9d6d3]">
+                  Enter the workspace password to continue.
+                </p>
+              </div>
 
-        <p className="text-[11px] text-center text-slate-500 mt-5">
-          Protected by signed session tokens (JWT) &amp; rate limiting.
-        </p>
-      </div>
+              {error && (
+                <div className="mb-5 flex items-center gap-2.5 p-3 rounded-xl text-xs bg-[#e8a48a]/15 border border-[#e8a48a]/35 text-[#e8a48a]">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-[#e8a48a]" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-medium text-[#c9d6d3] mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password..."
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl text-sm bg-black/40 border border-white/20 text-[#f3f6f2] placeholder-[#8fa4a1] focus:outline-none focus:border-[#e6ecc9] focus:ring-1 focus:ring-[#e6ecc9] transition-all"
+                  />
+                </div>
+
+                <CreamButton
+                  type="submit"
+                  disabled={loading}
+                  loading={loading}
+                  aria-label="Unlock Dashboard"
+                  className="w-full justify-between py-3 px-5 text-sm font-semibold cursor-pointer shadow-lg"
+                >
+                  Sign in
+                </CreamButton>
+              </form>
+
+              <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                <p className="text-[11px] text-[#8fa4a1]">
+                  Protected workspace · sessions expire after 7 days
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 text-center text-xs text-[#8fa4a1]">
+        MarTech Lead Engine · Autonomous Data Quality &amp; Lead Routing
+      </footer>
     </div>
   );
 }

@@ -15,14 +15,13 @@ import {
   Settings, 
   ChevronDown, 
   ChevronRight, 
-  Menu, 
   X, 
-  Sparkles, 
   LogOut, 
   Sun, 
   Moon,
   FileDown
 } from 'lucide-react';
+import { MountainLogo } from './common/ThemeComponents';
 
 export default function Sidebar({
   activeTab,
@@ -37,8 +36,8 @@ export default function Sidebar({
   setIsOpenMobile,
   extraRight
 }) {
-  const [pipelineOpen, setPipelineOpen] = useState(true);
-  const [insightsOpen, setInsightsOpen] = useState(true);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
@@ -58,7 +57,13 @@ export default function Sidebar({
       ]
     },
     { id: 'leads', label: 'Leads', icon: Flame },
-    { id: 'review', label: 'Review', icon: ClipboardCheck, badge: reviewCount > 0 ? String(reviewCount) : null, badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    { 
+      id: 'review', 
+      label: 'Review', 
+      icon: ClipboardCheck, 
+      badge: reviewCount > 0 ? String(reviewCount) : null, 
+      badgeColor: 'bg-[#e6c98a]/20 text-[#e6c98a] border-[#e6c98a]/40' 
+    },
     {
       id: 'insights_group',
       label: 'Insights',
@@ -85,38 +90,43 @@ export default function Sidebar({
       {/* Mobile Backdrop */}
       {isOpenMobile && (
         <div 
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-md"
           onClick={() => setIsOpenMobile(false)}
         />
       )}
 
-      {/* Main Sidebar */}
-      <aside className={`
-        fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col transition-transform duration-300 ease-in-out border-r
-        ${isOpenMobile ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
-      `}
-      style={{
-        background: 'var(--card-bg, #0f172a)',
-        borderColor: 'var(--border, #1e293b)'
-      }}>
+      {/* Main Frosted Glass Sidebar */}
+      <aside 
+        className={`
+          fixed top-0 bottom-0 left-0 z-50 w-64 flex flex-col transition-all duration-300 ease-in-out
+          border-r border-white/10 shadow-2xl
+          ${isOpenMobile ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+        `}
+        style={{
+          background: 'rgba(18, 33, 37, 0.88)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+        }}
+      >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-5 border-b" style={{ borderColor: 'var(--border, #1e293b)' }}>
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleSelect('dashboard')}>
-            <div className="h-8 w-8 rounded-lg p-0.5 shadow-md flex items-center justify-center bg-gradient-to-br from-indigo-500 to-teal-400">
-              <div className="w-full h-full rounded-[6px] flex items-center justify-center" style={{ background: 'var(--bg, #0b0f19)' }}>
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-              </div>
+        <div className="h-20 flex items-center justify-between px-5 border-b border-white/10">
+          <div 
+            className="flex items-center space-x-3 cursor-pointer group" 
+            onClick={() => handleSelect('dashboard')}
+          >
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 border border-white/20 text-[#e6ecc9] group-hover:scale-105 transition-transform shadow-sm">
+              <MountainLogo className="w-5 h-5 text-[#e6ecc9]" />
             </div>
             <div>
-              <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+              <span className="font-medium text-sm tracking-tight text-[#f3f6f2] flex items-center gap-1.5">
                 MarTech Engine
-                <span className="px-1.5 py-0.2 text-[9px] font-semibold rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">v2.0</span>
+                <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-[#e6ecc9]/20 text-[#e6ecc9] border border-[#e6ecc9]/30">v2.0</span>
               </span>
-              <p className="text-[10px] text-slate-400">Lead Quality &amp; Routing</p>
+              <p className="text-[11px] text-[#c9d6d3]/70 font-light">Lead Engine &amp; Routing</p>
             </div>
           </div>
           <button 
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="lg:hidden p-1.5 rounded-full text-[#c9d6d3] hover:text-white hover:bg-white/10"
             onClick={() => setIsOpenMobile(false)}
           >
             <X className="w-5 h-5" />
@@ -124,36 +134,38 @@ export default function Sidebar({
         </div>
 
         {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3.5 py-5 space-y-1.5 text-sm custom-scrollbar">
           {navItems.map((item) => {
             if (item.isGroup) {
               const isSubActive = item.subItems.some(sub => sub.id === activeTab);
               return (
-                <div key={item.id} className="pt-2">
+                <div key={item.id} className="pt-1.5">
                   <button
                     onClick={item.toggle}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-colors ${
-                      isSubActive ? 'text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-full font-medium transition-all ${
+                      isSubActive 
+                        ? 'bg-white/15 text-white border border-white/20' 
+                        : 'text-[#c9d6d3] hover:text-[#f3f6f2] hover:bg-white/[0.08]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <item.icon className={`w-4 h-4 ${isSubActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                      <item.icon className={`w-4 h-4 ${isSubActive ? 'text-[#e6ecc9]' : 'text-[#c9d6d3]'}`} />
                       <span>{item.label}</span>
                     </div>
-                    {item.isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    {item.isOpen ? <ChevronDown className="w-3.5 h-3.5 opacity-70" /> : <ChevronRight className="w-3.5 h-3.5 opacity-70" />}
                   </button>
                   {item.isOpen && (
-                    <div className="ml-5 pl-2 mt-1 space-y-0.5 border-l border-slate-800">
+                    <div className="ml-6 pl-2 mt-1 space-y-1 border-l border-white/15">
                       {item.subItems.map((sub) => {
                         const isCurrent = activeTab === sub.id;
                         return (
                           <button
                             key={sub.id}
                             onClick={() => handleSelect(sub.id)}
-                            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-xs transition-colors text-left ${
+                            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-full text-xs transition-all text-left ${
                               isCurrent 
-                                ? 'bg-indigo-600/20 text-indigo-300 font-semibold border border-indigo-500/30' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                ? 'bg-[#e6ecc9] text-[#14282b] font-semibold shadow-sm' 
+                                : 'text-[#c9d6d3] hover:text-white hover:bg-white/[0.08]'
                             }`}
                           >
                             <span>{sub.label}</span>
@@ -172,19 +184,21 @@ export default function Sidebar({
               <button
                 key={item.id}
                 onClick={() => handleSelect(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-full font-medium transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-indigo-600/30 to-teal-500/20 text-white font-semibold border border-indigo-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    ? 'bg-[#e6ecc9] text-[#14282b] font-semibold shadow-md shadow-black/20'
+                    : 'text-[#c9d6d3] hover:text-[#f3f6f2] hover:bg-white/[0.08]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#14282b]' : 'text-[#c9d6d3]'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
                   <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
-                    item.badgeColor || 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
+                    isActive 
+                      ? 'bg-[#14282b]/15 text-[#14282b] border-[#14282b]/30'
+                      : item.badgeColor || 'bg-white/15 text-[#e6ecc9] border-white/20'
                   }`}>
                     {item.badge}
                   </span>
@@ -194,8 +208,8 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* Bottom Actions & User Profile */}
-        <div className="p-3 border-t space-y-2" style={{ borderColor: 'var(--border, #1e293b)' }}>
+        {/* Bottom Section: Status, Theme Toggle & Logout */}
+        <div className="p-4 border-t border-white/10 space-y-2">
           {extraRight && (
             <div className="pb-1">
               {extraRight}
@@ -205,17 +219,17 @@ export default function Sidebar({
           <div className="flex items-center justify-between px-2 pt-1">
             <button
               onClick={toggleTheme}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 py-1"
-              title="Toggle Dark / Light Mode"
+              className="flex items-center gap-1.5 text-xs text-[#c9d6d3] hover:text-white py-1 transition-colors"
+              title="Toggle Theme"
             >
-              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-[#e6c98a]" /> : <Moon className="w-3.5 h-3.5 text-[#9ec3d6]" />}
               <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
             </button>
 
             <a
               href="/MarTech_Lead_Engine_Architecture_And_QA_Report.pdf"
               download
-              className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1"
+              className="text-xs text-[#9fb8b5] hover:text-[#e6ecc9] flex items-center gap-1 transition-colors"
               title="Download Architecture QA PDF"
             >
               <FileDown className="w-3.5 h-3.5" />
@@ -226,10 +240,10 @@ export default function Sidebar({
           {isAuthenticated && onLogout && (
             <button
               onClick={onLogout}
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-slate-800 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full text-xs font-medium text-[#c9d6d3] hover:text-[#e8a48a] hover:bg-white/[0.06] border border-white/10 transition-all cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <span>Log out</span>
             </button>
           )}
         </div>

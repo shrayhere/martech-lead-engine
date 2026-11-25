@@ -104,30 +104,30 @@ export default function LeadListsPage({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Top Header & Run Selector */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-800">
+      <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-white/10">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            Qualified Lead Lists (Hot / Warm / Cold)
+          <h2 className="text-2xl font-normal text-[#f3f6f2] flex items-center gap-2">
+            <span className="font-display text-[#e6ecc9]">Lead</span>
+            directory &amp; routing
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[#c9d6d3] mt-1">
             Segmented by rule-based weights & machine learning scoring with explainable rationale and 4-tier rep routing.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           {runs && runs.length > 0 && (
-            <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 font-medium">Pipeline Run:</span>
+            <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full border border-white/10 text-xs">
+              <span className="text-[#8fa4a1] font-medium">Pipeline Run:</span>
               <select
                 value={selectedRunId || ''}
                 onChange={(e) => onSelectRun && onSelectRun(e.target.value)}
-                className="bg-transparent text-indigo-300 font-mono text-xs focus:outline-none cursor-pointer"
+                className="bg-transparent text-[#e6ecc9] font-mono text-xs focus:outline-none cursor-pointer"
               >
                 {runs.map((r) => (
-                  <option key={r.run_id} value={r.run_id} className="bg-slate-950 text-white">
+                  <option key={r.run_id} value={r.run_id} className="bg-[#14282b] text-[#f3f6f2]">
                     {r.filename} ({r.created_at ? r.created_at.slice(0, 16) : r.run_id.slice(0, 8)})
                   </option>
                 ))}
@@ -137,9 +137,9 @@ export default function LeadListsPage({
 
           <button
             onClick={handleExportCSV}
-            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-md transition-all cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 bg-[#e6ecc9] hover:bg-[#dce3b8] text-[#14282b] rounded-full text-xs font-semibold shadow-md transition-all cursor-pointer"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
           </button>
         </div>
@@ -148,10 +148,10 @@ export default function LeadListsPage({
       {/* Segmented Band Toggle Pills */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { id: 'all', label: 'All Leads', icon: Layers, count: bandSummary.total, color: 'indigo' },
-          { id: 'hot', label: 'Hot Leads', icon: Flame, count: bandSummary.hot?.count, pct: bandSummary.hot?.percentage, color: 'rose' },
-          { id: 'warm', label: 'Warm Leads', icon: Zap, count: bandSummary.warm?.count, pct: bandSummary.warm?.percentage, color: 'amber' },
-          { id: 'cold', label: 'Cold Leads', icon: Snowflake, count: bandSummary.cold?.count, pct: bandSummary.cold?.percentage, color: 'cyan' },
+          { id: 'all', label: 'All Leads', icon: Layers, count: bandSummary.total, color: 'all' },
+          { id: 'hot', label: 'Hot Leads', icon: Flame, count: bandSummary.hot?.count, pct: bandSummary.hot?.percentage, color: 'hot' },
+          { id: 'warm', label: 'Warm Leads', icon: Zap, count: bandSummary.warm?.count, pct: bandSummary.warm?.percentage, color: 'warm' },
+          { id: 'cold', label: 'Cold Leads', icon: Snowflake, count: bandSummary.cold?.count, pct: bandSummary.cold?.percentage, color: 'cold' },
         ].map((tab) => {
           const Icon = tab.icon;
           const isSelected = band === tab.id;
@@ -159,33 +159,33 @@ export default function LeadListsPage({
             <button
               key={tab.id}
               onClick={() => { setBand(tab.id); setPage(1); }}
-              className={`p-4 rounded-xl border transition-all text-left flex items-center justify-between cursor-pointer ${
+              className={`p-4 rounded-2xl border transition-all text-left flex items-center justify-between cursor-pointer ${
                 isSelected
-                  ? tab.color === 'rose'
-                    ? 'bg-rose-500/15 border-rose-500 text-white shadow-lg shadow-rose-500/10'
-                    : tab.color === 'amber'
-                    ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
-                    : tab.color === 'cyan'
-                    ? 'bg-cyan-500/15 border-cyan-500 text-white shadow-lg shadow-cyan-500/10'
-                    : 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-500/10'
-                  : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:bg-slate-900/80 hover:text-slate-200'
+                  ? tab.color === 'hot'
+                    ? 'bg-[#e8a48a]/20 border-[#e8a48a] text-[#f3f6f2] shadow-lg shadow-black/20'
+                    : tab.color === 'warm'
+                    ? 'bg-[#e6c98a]/20 border-[#e6c98a] text-[#f3f6f2] shadow-lg shadow-black/20'
+                    : tab.color === 'cold'
+                    ? 'bg-[#9ec3d6]/20 border-[#9ec3d6] text-[#f3f6f2] shadow-lg shadow-black/20'
+                    : 'bg-[#e6ecc9]/20 border-[#e6ecc9] text-[#f3f6f2] shadow-lg shadow-black/20'
+                  : 'bg-white/[0.05] border-white/10 text-[#c9d6d3] hover:bg-white/[0.08] hover:text-[#f3f6f2]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${
-                  tab.color === 'rose' ? 'bg-rose-500/20 text-rose-400' :
-                  tab.color === 'amber' ? 'bg-amber-500/20 text-amber-400' :
-                  tab.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400' :
-                  'bg-indigo-500/20 text-indigo-400'
+                <div className={`p-2 rounded-xl ${
+                  tab.color === 'hot' ? 'bg-[#e8a48a]/20 text-[#e8a48a]' :
+                  tab.color === 'warm' ? 'bg-[#e6c98a]/20 text-[#e6c98a]' :
+                  tab.color === 'cold' ? 'bg-[#9ec3d6]/20 text-[#9ec3d6]' :
+                  'bg-[#e6ecc9]/20 text-[#e6ecc9]'
                 }`}>
                   <Icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold">{tab.label}</div>
-                  <div className="text-lg font-bold font-mono text-white">
+                  <div className="text-xs font-medium text-[#c9d6d3]">{tab.label}</div>
+                  <div className="text-lg font-light tabular-nums text-[#f3f6f2]">
                     {tab.count ?? 0}
                     {tab.pct !== undefined && (
-                      <span className="text-[11px] font-normal text-slate-400 ml-1.5 font-sans">
+                      <span className="text-[11px] font-normal text-[#8fa4a1] ml-1.5 font-sans">
                         ({tab.pct}%)
                       </span>
                     )}
